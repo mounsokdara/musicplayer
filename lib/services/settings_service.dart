@@ -1,0 +1,73 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Persisted settings (§6.9).
+class SettingsService extends ChangeNotifier {
+  SettingsService._(this._prefs);
+
+  final SharedPreferences _prefs;
+
+  static Future<SettingsService> load() async =>
+      SettingsService._(await SharedPreferences.getInstance());
+
+  // Themes & Colors
+  ThemeMode get themeMode =>
+      ThemeMode.values[_prefs.getInt('themeMode') ?? ThemeMode.system.index];
+  set themeMode(ThemeMode v) => _set('themeMode', v.index);
+
+  bool get useDynamicColor => _prefs.getBool('dynamicColor') ?? true;
+  set useDynamicColor(bool v) => _set('dynamicColor', v);
+
+  Color get accentColor => Color(_prefs.getInt('accent') ?? 0xFF4A6FA5);
+  set accentColor(Color v) => _set('accent', v.toARGB32());
+
+  // Now Playing
+  bool get showExtraControls => _prefs.getBool('extraControls') ?? true;
+  set showExtraControls(bool v) => _set('extraControls', v);
+
+  bool get albumArtOnLockscreen => _prefs.getBool('lockscreenArt') ?? true;
+  set albumArtOnLockscreen(bool v) => _set('lockscreenArt', v);
+
+  // Library
+  bool get splitMultipleArtists => _prefs.getBool('splitArtists') ?? false;
+  set splitMultipleArtists(bool v) => _set('splitArtists', v);
+
+  int get minTrackSeconds => _prefs.getInt('minTrackSeconds') ?? 3;
+  set minTrackSeconds(int v) => _set('minTrackSeconds', v);
+
+  // Images
+  bool get cacheImages => _prefs.getBool('cacheImages') ?? true;
+  set cacheImages(bool v) => _set('cacheImages', v);
+
+  bool get downloadMetadata => _prefs.getBool('downloadMetadata') ?? false;
+  set downloadMetadata(bool v) => _set('downloadMetadata', v);
+
+  // Audio
+  bool get fadeAudio => _prefs.getBool('fadeAudio') ?? false;
+  set fadeAudio(bool v) => _set('fadeAudio', v);
+
+  bool get replayGain => _prefs.getBool('replayGain') ?? false;
+  set replayGain(bool v) => _set('replayGain', v);
+
+  bool get gaplessPlayback => _prefs.getBool('gapless') ?? true;
+  set gaplessPlayback(bool v) => _set('gapless', v);
+
+  // Playlists
+  int get recentlyAddedDays => _prefs.getInt('recentlyAddedDays') ?? 14;
+  set recentlyAddedDays(int v) => _set('recentlyAddedDays', v);
+
+  int get recentlyPlayedDays => _prefs.getInt('recentlyPlayedDays') ?? 7;
+  set recentlyPlayedDays(int v) => _set('recentlyPlayedDays', v);
+
+  void _set(String key, Object value) {
+    switch (value) {
+      case final int v:
+        _prefs.setInt(key, v);
+      case final bool v:
+        _prefs.setBool(key, v);
+      case final String v:
+        _prefs.setString(key, v);
+    }
+    notifyListeners();
+  }
+}

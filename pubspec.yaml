@@ -1,0 +1,47 @@
+name: musicplayer
+description: A local Material 3 music player for Android.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Playback + media session / notification / lockscreen
+  just_audio: ^0.9.42
+  audio_service: ^0.18.15
+  audio_session: ^0.1.21
+  # MediaStore scanning (songs, albums, artists, genres, playlists, artwork)
+  on_audio_query: ^2.9.0
+  # Permissions (READ_MEDIA_AUDIO / MANAGE_EXTERNAL_STORAGE)
+  permission_handler: ^11.3.1
+  # State management
+  provider: ^6.1.2
+  # Dynamic color from album art + system dynamic color
+  palette_generator: ^0.3.3+4
+  dynamic_color: ^1.7.0
+  # Settings persistence
+  shared_preferences: ^2.3.2
+  # System volume slider bound to media stream
+  volume_controller: ^2.0.7
+  # Equalizer (Android AudioEffect)
+  equalizer_flutter: ^0.1.0
+  # Incoming ACTION_VIEW audio intents
+  receive_sharing_intent: ^1.8.0
+  # Reorderable queue, share sheet, path helpers
+  share_plus: ^10.0.2
+  path: ^1.9.0
+  html_unescape: ^2.0.0
+  marquee: ^2.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

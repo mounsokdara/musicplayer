@@ -1,0 +1,34 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    // Replace "mounsokdara" with your GitHub username (lowercase).
+    namespace "com.mounsokdara.musicplayer"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.mounsokdara.musicplayer"
+        minSdk 24
+        targetSdk 35
+        versionCode flutter.versionCode
+        versionName flutter.versionName
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+
+    buildTypes {
+        release {
+            // Use your own keystore before publishing.
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+flutter { source "../.." }
