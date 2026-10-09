@@ -27,7 +27,6 @@ dependencies:
   # System volume slider bound to media stream
   volume_controller: ^2.0.7
   # Equalizer (Android AudioEffect)
-  equalizer_flutter: ^0.0.1
   # Incoming ACTION_VIEW audio intents
   receive_sharing_intent: ^1.8.0
   # Reorderable queue, share sheet, path helpers
