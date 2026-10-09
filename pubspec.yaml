@@ -21,7 +21,7 @@ dependencies:
   provider: ^6.1.2
   # Dynamic color from album art + system dynamic color
   palette_generator: ^0.3.3+4
-  dynamic_color: ^1.7.0
+  dynamic_color: 1.7.0
   # Settings persistence
   shared_preferences: ^2.3.2
   # System volume slider bound to media stream
