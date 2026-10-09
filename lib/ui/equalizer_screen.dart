@@ -1,7 +1,11 @@
-import 'package:equalizer_flutter/equalizer_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
-/// System equalizer (Android AudioEffect) with bands, presets and bass boost.
+import '../state/player_state.dart';
+
+/// System equalizer (Android AudioEffect) with bands, presets and bass boost,
+/// driven through a MethodChannel to the native Equalizer/BassBoost effects.
 class EqualizerScreen extends StatefulWidget {
   const EqualizerScreen({super.key});
 
@@ -10,13 +14,17 @@ class EqualizerScreen extends StatefulWidget {
 }
 
 class _EqualizerScreenState extends State<EqualizerScreen> {
+  static const _channel = MethodChannel('com.mounsokdara.musicplayer/equalizer');
+
   bool _enabled = true;
+  bool _available = false;
   List<int> _bands = [];
   List<String> _presets = [];
-  String? _preset;
+  int? _preset;
   int _min = -1500;
   int _max = 1500;
   double _bassBoost = 0;
+  late List<double> _levels;
 
   @override
   void initState() {
@@ -26,16 +34,18 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
 
   Future<void> _init() async {
     try {
-      await EqualizerFlutter.init(0);
-      final bands = await EqualizerFlutter.getCenterBandFreqs();
-      final range = await EqualizerFlutter.getBandLevelRange();
-      final presets = await EqualizerFlutter.getPresetNames();
-      if (!mounted) return;
+      final player = context.read<PlayerState>().handler.player;
+      final sessionId = await player.androidAudioSessionId ?? 0;
+      final map = await _channel.invokeMapMethod<String, dynamic>(
+          'init', {'sessionId': sessionId});
+      if (!mounted || map == null) return;
       setState(() {
-        _bands = bands;
-        _min = range.first;
-        _max = range.last;
-        _presets = presets;
+        _bands = (map['bands'] as List).cast<int>();
+        _min = map['min'] as int;
+        _max = map['max'] as int;
+        _presets = (map['presets'] as List).cast<String>();
+        _levels = List.filled(_bands.length, 0);
+        _available = _bands.isNotEmpty;
       });
     } catch (_) {
       // Some devices expose no equalizer effect.
@@ -44,7 +54,7 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
 
   @override
   void dispose() {
-    EqualizerFlutter.release();
+    _channel.invokeMethod('release');
     super.dispose();
   }
 
@@ -58,42 +68,65 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
             value: _enabled,
             onChanged: (v) {
               setState(() => _enabled = v);
-              EqualizerFlutter.setEnabled(v);
+              _channel.invokeMethod('setEnabled', {'enabled': v});
             },
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: _bands.isEmpty
+      body: !_available
           ? const Center(child: Text('No equalizer available on this device'))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                DropdownButtonFormField<String>(
+                DropdownButtonFormField<int>(
                   initialValue: _preset,
                   decoration: const InputDecoration(
                     labelText: 'Preset',
                     border: OutlineInputBorder(),
                   ),
                   items: [
-                    for (final p in _presets)
-                      DropdownMenuItem(value: p, child: Text(p)),
+                    for (var i = 0; i < _presets.length; i++)
+                      DropdownMenuItem(value: i, child: Text(_presets[i])),
                   ],
                   onChanged: _enabled
                       ? (v) {
                           setState(() => _preset = v);
-                          if (v != null) EqualizerFlutter.setPreset(v);
+                          if (v != null) {
+                            _channel.invokeMethod('setPreset', {'preset': v});
+                          }
                         }
                       : null,
                 ),
                 const SizedBox(height: 24),
                 for (var i = 0; i < _bands.length; i++)
-                  _BandSlider(
-                    index: i,
-                    frequency: _bands[i],
-                    min: _min,
-                    max: _max,
-                    enabled: _enabled,
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 72,
+                        child: Text(
+                          _bands[i] >= 1000000
+                              ? '${(_bands[i] / 1000000).toStringAsFixed(1)} kHz'
+                              : '${(_bands[i] / 1000).round()} Hz',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: _levels[i]
+                              .clamp(_min.toDouble(), _max.toDouble()),
+                          min: _min.toDouble(),
+                          max: _max.toDouble(),
+                          onChanged: _enabled
+                              ? (v) {
+                                  setState(() => _levels[i] = v);
+                                  _channel.invokeMethod('setBandLevel',
+                                      {'band': i, 'level': v.round()});
+                                }
+                              : null,
+                        ),
+                      ),
+                    ],
                   ),
                 const Divider(height: 32),
                 Text('Bass boost',
@@ -104,61 +137,13 @@ class _EqualizerScreenState extends State<EqualizerScreen> {
                   onChanged: _enabled
                       ? (v) {
                           setState(() => _bassBoost = v);
-                          EqualizerFlutter.setBandLevel(0, v.round());
+                          _channel.invokeMethod('setBassBoost',
+                              {'strength': v.round()});
                         }
                       : null,
                 ),
               ],
             ),
-    );
-  }
-}
-
-class _BandSlider extends StatefulWidget {
-  const _BandSlider({
-    required this.index,
-    required this.frequency,
-    required this.min,
-    required this.max,
-    required this.enabled,
-  });
-
-  final int index;
-  final int frequency;
-  final int min;
-  final int max;
-  final bool enabled;
-
-  @override
-  State<_BandSlider> createState() => _BandSliderState();
-}
-
-class _BandSliderState extends State<_BandSlider> {
-  double _value = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 64,
-          child: Text('${(widget.frequency / 1000).round()} Hz',
-              style: Theme.of(context).textTheme.labelMedium),
-        ),
-        Expanded(
-          child: Slider(
-            value: _value.clamp(widget.min.toDouble(), widget.max.toDouble()),
-            min: widget.min.toDouble(),
-            max: widget.max.toDouble(),
-            onChanged: widget.enabled
-                ? (v) {
-                    setState(() => _value = v);
-                    EqualizerFlutter.setBandLevel(widget.index, v.round());
-                  }
-                : null,
-          ),
-        ),
-      ],
     );
   }
 }
