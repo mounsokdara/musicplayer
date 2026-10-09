@@ -17,6 +17,12 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Generate Android scaffolding
+        run: |
+          cp -r android /tmp/android_custom
+          flutter create --org com.mounsokdara --project-name musicplayer --platforms android .
+          cp -rf /tmp/android_custom/. android/
+
       - name: Install dependencies
         run: flutter pub get
 
