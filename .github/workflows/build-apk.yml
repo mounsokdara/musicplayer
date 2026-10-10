@@ -27,17 +27,17 @@ jobs:
           cp -rf /tmp/android_custom/. android/
           cat >> android/build.gradle.kts <<'KTS'
 
-subprojects {
-    plugins.withId("com.android.library") {
-        val ext = extensions.getByName("android") as com.android.build.gradle.LibraryExtension
-        if (ext.namespace == null) {
-            val mf = file("src/main/AndroidManifest.xml")
-            val pkg = if (mf.exists()) Regex("package=\"([^\"]+)\"").find(mf.readText())?.groupValues?.get(1) else null
-            ext.namespace = pkg ?: group.toString()
-        }
-    }
-}
-KTS
+          subprojects {
+              plugins.withId("com.android.library") {
+                  val ext = extensions.getByName("android") as com.android.build.gradle.LibraryExtension
+                  if (ext.namespace == null) {
+                      val mf = file("src/main/AndroidManifest.xml")
+                      val pkg = if (mf.exists()) Regex("package=\"([^\"]+)\"").find(mf.readText())?.groupValues?.get(1) else null
+                      ext.namespace = pkg ?: group.toString()
+                  }
+              }
+          }
+          KTS
 
       - name: Install dependencies
         run: flutter pub get
