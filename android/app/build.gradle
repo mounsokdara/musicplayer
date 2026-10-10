@@ -7,7 +7,7 @@ plugins {
 android {
     // Replace "mounsokdara" with your GitHub username (lowercase).
     namespace "com.mounsokdara.musicplayer"
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.mounsokdara.musicplayer"
