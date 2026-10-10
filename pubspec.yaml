@@ -25,12 +25,12 @@ dependencies:
   # Settings persistence
   shared_preferences: ^2.3.2
   # System volume slider bound to media stream
-  volume_controller: ^2.0.7
+  volume_controller: ^3.3.1
   # Equalizer (Android AudioEffect)
   # Incoming ACTION_VIEW audio intents
   receive_sharing_intent: ^1.8.0
   # Reorderable queue, share sheet, path helpers
-  share_plus: ^10.0.2
+  share_plus: ^11.0.0
   path: ^1.9.0
   html_unescape: ^2.0.0
   marquee: ^2.2.3
