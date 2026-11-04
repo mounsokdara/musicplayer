@@ -3,7 +3,7 @@ package com.mounsokdara.musicplayer
 import android.content.Intent
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -11,7 +11,7 @@ import io.flutter.plugin.common.MethodChannel
  * Hosts the Flutter app and forwards incoming audio ACTION_VIEW / ACTION_SEND
  * intents to Dart, which opens the lightweight floating player (§6.10).
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
 
     private val channel = "com.mounsokdara.musicplayer/intents"
     private val eqChannel = "com.mounsokdara.musicplayer/equalizer"

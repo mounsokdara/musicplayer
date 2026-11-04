@@ -14,21 +14,47 @@ late MusicAudioHandler audioHandler;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  audioHandler = await initAudioService();
-  final settings = await SettingsService.load();
+  try {
+    audioHandler = await initAudioService().timeout(
+      const Duration(seconds: 15),
+    );
+    final settings = await SettingsService.load();
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: settings),
-        ChangeNotifierProvider(
-          create: (_) => LibraryState(MediaLibrary())..load(),
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: settings),
+          ChangeNotifierProvider(
+            create: (_) => LibraryState(MediaLibrary())..load(),
+          ),
+          ChangeNotifierProvider(create: (_) => PlayerState(audioHandler)),
+        ],
+        child: const MusicApp(),
+      ),
+    );
+  } catch (e, st) {
+    runApp(_StartupError(error: '$e\n\n$st'));
+  }
+}
+
+class _StartupError extends StatelessWidget {
+  const _StartupError({required this.error});
+
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText(error),
+          ),
         ),
-        ChangeNotifierProvider(create: (_) => PlayerState(audioHandler)),
-      ],
-      child: const MusicApp(),
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class MusicApp extends StatelessWidget {
