@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/song.dart';
+import '../../services/permissions.dart';
 import '../../state/library_state.dart';
 import '../../state/player_state.dart';
 import '../sheets/song_sheet.dart';
@@ -48,7 +49,7 @@ class _SongsTabState extends State<SongsTab> {
             child: library.loading
                 ? const Center(child: CircularProgressIndicator())
                 : songs.isEmpty
-                    ? const Center(child: Text('No music found'))
+                    ? _EmptyLibrary(library: library, searching: _query.isNotEmpty)
                     : FastScrollList(
                         itemCount: songs.length,
                         itemExtent: 68,
@@ -123,6 +124,58 @@ class SongRow extends StatelessWidget {
         trailing: IconButton(
           icon: const Icon(Icons.more_vert),
           onPressed: () => showSongSheet(context, song),
+        ),
+      ),
+    );
+  }
+}
+
+/// Explains *why* the list is empty instead of a bare "No music found".
+class _EmptyLibrary extends StatelessWidget {
+  const _EmptyLibrary({required this.library, required this.searching});
+
+  final LibraryState library;
+  final bool searching;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final String detail;
+    if (searching) {
+      detail = 'No songs match your search.';
+    } else if (library.loadError != null) {
+      detail = 'The system could not list your music:\n${library.loadError}';
+    } else if (library.systemTrackCount == 0) {
+      detail = 'Android reports no audio files. If you just added music, '
+          'tap Rescan. Otherwise check that audio permission is allowed.';
+    } else {
+      detail = '${library.systemTrackCount} tracks found, but all are hidden '
+          'by folder filters or the minimum track length setting.';
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.music_off_outlined, size: 56),
+            const SizedBox(height: 12),
+            Text('No music found', style: text.titleMedium),
+            const SizedBox(height: 8),
+            Text(detail, textAlign: TextAlign.center, style: text.bodyMedium),
+            if (!searching) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: library.rescan,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Rescan'),
+              ),
+              TextButton(
+                onPressed: MediaPermissions.openSettings,
+                child: const Text('Open app settings'),
+              ),
+            ],
+          ],
         ),
       ),
     );

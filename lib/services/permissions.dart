@@ -5,11 +5,18 @@ import 'package:permission_handler/permission_handler.dart';
 class MediaPermissions {
   /// Media access needed to list the library. Never opens the all-files
   /// settings page, so it always completes quickly.
+  ///
+  /// The media permission itself is always required: on Android 13+ the
+  /// system returns an empty list without READ_MEDIA_AUDIO, even when
+  /// "All files access" is granted.
   static Future<bool> request() async {
-    if (await isGranted) return true;
+    if (await Permission.audio.isGranted ||
+        await Permission.storage.isGranted) {
+      return true;
+    }
     if ((await Permission.audio.request()).isGranted) return true;
     if ((await Permission.storage.request()).isGranted) return true;
-    return Permission.manageExternalStorage.isGranted;
+    return false;
   }
 
   /// All files access (Android 11+). Opens the system settings page; call it

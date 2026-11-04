@@ -57,6 +57,9 @@ class LibraryState extends ChangeNotifier {
   Set<String> allFolders = {};
   List<Song> _allSongs = [];
 
+  /// Tracks the system reported before any filter (for diagnostics).
+  int get systemTrackCount => _allSongs.length;
+
   SongSortField songSort = SongSortField.name;
   bool songAscending = true;
 
