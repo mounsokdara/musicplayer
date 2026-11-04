@@ -37,6 +37,23 @@ jobs:
                   }
               }
           }
+
+          // Plugins like on_audio_query_android hardcode Java 1.8 while Kotlin
+          // compiles at 17 -> "Inconsistent JVM-target compatibility". Force all
+          // Android library modules to Java 17 so both compilers agree.
+          subprojects {
+              val alignJavaTarget = {
+                  plugins.withId("com.android.library") {
+                      val ext = extensions.getByName("android") as com.android.build.gradle.LibraryExtension
+                      ext.compileOptions {
+                          sourceCompatibility = JavaVersion.VERSION_17
+                          targetCompatibility = JavaVersion.VERSION_17
+                      }
+                  }
+              }
+              // :app is already evaluated (evaluationDependsOn), so guard afterEvaluate.
+              if (state.executed) alignJavaTarget() else afterEvaluate { alignJavaTarget() }
+          }
           KTS
 
       - name: Install dependencies
