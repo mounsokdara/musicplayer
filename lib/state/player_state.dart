@@ -176,6 +176,19 @@ class PlayerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  double get speed => handler.player.speed;
+  double get pitch => handler.player.pitch;
+
+  Future<void> setSpeed(double v) async {
+    await handler.player.setSpeed(v);
+    notifyListeners();
+  }
+
+  Future<void> setPitch(double v) async {
+    await handler.player.setPitch(v);
+    notifyListeners();
+  }
+
   void setSleepTimer(Duration? d) {
     _sleepTimer?.cancel();
     sleepRemaining = d;

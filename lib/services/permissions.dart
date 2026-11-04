@@ -1,29 +1,32 @@
 import 'package:permission_handler/permission_handler.dart';
 
-/// Granular-media-permission flow (see README for the documented rationale).
-///
-/// Android 13+  -> READ_MEDIA_AUDIO
-/// Android 11-12 -> READ_EXTERNAL_STORAGE
-/// Android <=10  -> READ + WRITE_EXTERNAL_STORAGE
-///
-/// Deletes and renames outside our own scope are performed through the system
-/// delete request / SAF prompt, so no all-files access is required.
+/// Requests media access plus "All files access" (MANAGE_EXTERNAL_STORAGE) so
+/// the app can read, write, rename and delete any file without per-file prompts.
 class MediaPermissions {
   static Future<bool> request() async {
+    // All files access (Android 11+). Opens the system settings page.
+    var allFiles = await Permission.manageExternalStorage.status;
+    if (!allFiles.isGranted) {
+      allFiles = await Permission.manageExternalStorage.request();
+    }
+
     final audio = await Permission.audio.request();
-    if (audio.isGranted) return true;
+    final storage =
+        audio.isGranted ? audio : await Permission.storage.request();
 
-    // Older Android versions have no READ_MEDIA_AUDIO.
-    final storage = await Permission.storage.request();
-    if (storage.isGranted) return true;
-
-    return false;
+    return allFiles.isGranted || audio.isGranted || storage.isGranted;
   }
 
+  static Future<bool> get hasAllFilesAccess =>
+      Permission.manageExternalStorage.isGranted;
+
   static Future<bool> get isGranted async =>
-      await Permission.audio.isGranted || await Permission.storage.isGranted;
+      await Permission.manageExternalStorage.isGranted ||
+      await Permission.audio.isGranted ||
+      await Permission.storage.isGranted;
 
   static Future<bool> get isPermanentlyDenied async =>
+      await Permission.manageExternalStorage.isPermanentlyDenied &&
       await Permission.audio.isPermanentlyDenied &&
       await Permission.storage.isPermanentlyDenied;
 

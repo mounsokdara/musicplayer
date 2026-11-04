@@ -13,22 +13,23 @@ Local music player for Android, Material Design 3.
 2. `flutter pub get`
 3. `flutter run` on a device with music on it (emulators usually have none).
 
-## Storage permission approach (documented choice)
+## Version
 
-This project uses **granular media permissions**, not
-`MANAGE_EXTERNAL_STORAGE`:
+The app is always **v1.0.0** (`pubspec.yaml` and the release workflow are pinned
+to it; every CI run updates the single `v1.0.0` release).
 
-- Android 13+ (API 33+): `READ_MEDIA_AUDIO`.
-- Android 11–12: `READ_EXTERNAL_STORAGE`.
-- Android ≤10: `READ_EXTERNAL_STORAGE` + `WRITE_EXTERNAL_STORAGE`.
+## Storage permissions
 
-Writes (tag editing, artwork) go through `MediaStore`. Deletes and renames
-outside the app's own scope go through the system delete/write request
-(`MediaStore.createDeleteRequest`) or a Storage Access Framework prompt, so the
-user confirms each destructive action. `MANAGE_EXTERNAL_STORAGE` is left
-declared but commented out in the manifest — uncomment it only for sideloaded
-builds if you want silent bulk deletes; Play Store review requires a
-justification for it.
+The app requests **All files access** (`MANAGE_EXTERNAL_STORAGE`) so it can
+read, write, rename and delete any file without per-file prompts, plus the
+usual media permissions as a fallback:
+
+- Android 11+: All files access (granted on the system settings page).
+- Android 13+: `READ_MEDIA_AUDIO`; Android 11–12: `READ_EXTERNAL_STORAGE`;
+  Android ≤10: `READ_EXTERNAL_STORAGE` + `WRITE_EXTERNAL_STORAGE`.
+
+Note: Google Play restricts `MANAGE_EXTERNAL_STORAGE`; this build targets
+sideloading.
 
 ## Structure
 

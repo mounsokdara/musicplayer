@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Media scanning / reading. See README for the documented approach. -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
@@ -9,10 +10,11 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
 
-    <!-- Sideload-only escape hatch for silent bulk delete/rename.
-         Uncomment if you do not want per-file system confirmation dialogs.
+    <!-- All files access: silent read/write/delete/rename of any file. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" /> -->
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Background playback + media session -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

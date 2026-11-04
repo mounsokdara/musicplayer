@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/settings_service.dart';
@@ -301,6 +302,40 @@ final _sections = <_Section>[
             onChanged: (v) => s.recentlyPlayedDays = v.round(),
           ),
         ),
+      ),
+    ],
+  ),
+  _Section(
+    Icons.backup_outlined,
+    'Backup & restore',
+    'Copy or paste all settings',
+    (context, s) => [
+      ListTile(
+        title: const Text('Back up settings'),
+        subtitle: const Text('Copies settings JSON to the clipboard'),
+        onTap: () async {
+          await Clipboard.setData(ClipboardData(text: s.exportJson()));
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Settings copied to clipboard')),
+            );
+          }
+        },
+      ),
+      ListTile(
+        title: const Text('Restore settings'),
+        subtitle: const Text('Reads settings JSON from the clipboard'),
+        onTap: () async {
+          final text = (await Clipboard.getData('text/plain'))?.text ?? '';
+          final ok = await s.importJson(text);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ok ? 'Settings restored' : 'Clipboard has no valid backup'),
+              ),
+            );
+          }
+        },
       ),
     ],
   ),

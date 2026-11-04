@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -64,6 +66,36 @@ class SettingsService extends ChangeNotifier {
 
   bool get showLyricsTranslation => _prefs.getBool('lyricsTranslation') ?? true;
   set showLyricsTranslation(bool v) => _set('lyricsTranslation', v);
+
+  /// Backup: all settings as a JSON string.
+  String exportJson() => jsonEncode({
+        for (final k in _prefs.getKeys()) k: _prefs.get(k),
+      });
+
+  /// Restore from [exportJson] output. Returns false if the text is invalid.
+  Future<bool> importJson(String text) async {
+    try {
+      final data = jsonDecode(text) as Map<String, dynamic>;
+      for (final e in data.entries) {
+        final v = e.value;
+        if (v is bool) {
+          await _prefs.setBool(e.key, v);
+        } else if (v is int) {
+          await _prefs.setInt(e.key, v);
+        } else if (v is double) {
+          await _prefs.setDouble(e.key, v);
+        } else if (v is String) {
+          await _prefs.setString(e.key, v);
+        } else if (v is List) {
+          await _prefs.setStringList(e.key, v.map((x) => '$x').toList());
+        }
+      }
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   void _set(String key, Object value) {
     switch (value) {

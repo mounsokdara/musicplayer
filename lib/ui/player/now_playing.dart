@@ -327,6 +327,11 @@ class _ActionBar extends StatelessWidget {
                   onPressed: () => _showSleepTimer(context, player),
                 ),
                 IconButton(
+                  tooltip: 'Speed & pitch',
+                  icon: const Icon(Icons.speed),
+                  onPressed: () => _showSpeedPitch(context),
+                ),
+                IconButton(
                   tooltip: 'Repeat',
                   icon: Icon(repeatIcon),
                   onPressed: player.cycleRepeat,
@@ -338,6 +343,47 @@ class _ActionBar extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showSpeedPitch(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    builder: (_) => SafeArea(
+      child: Consumer<PlayerState>(
+        builder: (context, p, _) => Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Playback speed  ${p.speed.toStringAsFixed(2)}x'),
+              Slider(
+                value: p.speed.clamp(0.5, 2.0),
+                min: 0.5,
+                max: 2.0,
+                divisions: 30,
+                onChanged: p.setSpeed,
+              ),
+              Text('Pitch  ${p.pitch.toStringAsFixed(2)}x'),
+              Slider(
+                value: p.pitch.clamp(0.5, 2.0),
+                min: 0.5,
+                max: 2.0,
+                divisions: 30,
+                onChanged: p.setPitch,
+              ),
+              TextButton(
+                onPressed: () {
+                  p.setSpeed(1.0);
+                  p.setPitch(1.0);
+                },
+                child: const Text('Reset'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 void _showSleepTimer(BuildContext context, PlayerState player) {
