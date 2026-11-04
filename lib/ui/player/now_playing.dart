@@ -8,6 +8,7 @@ import '../../models/song.dart';
 import '../../state/player_state.dart';
 import '../equalizer_screen.dart';
 import '../widgets/song_artwork.dart';
+import '../tag_editor.dart';
 import 'lyrics_editor.dart';
 import 'lyrics_view.dart';
 import 'up_next.dart';
@@ -487,7 +488,15 @@ void _showMenu(BuildContext context, Song song) {
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
                 title: const Text('Tag editor'),
-                onTap: () => soon('Tag editor'),
+                onTap: () {
+                  final nav = Navigator.of(context);
+                  close();
+                  nav.push(
+                    MaterialPageRoute(
+                      builder: (_) => TagEditorScreen(song: song),
+                    ),
+                  );
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.lyrics_outlined),

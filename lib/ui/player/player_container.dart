@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../state/player_state.dart';
+import '../app_bottom_bar.dart';
 import 'mini_player.dart';
 import 'now_playing.dart';
 
@@ -27,7 +28,6 @@ class _PlayerContainerState extends State<PlayerContainer>
 
   static const double _miniHeight = 66;
   double _screenHeight = 800;
-  double _navBarHeight = 80;
 
   double get _expansion => _controller.value;
 
@@ -66,6 +66,7 @@ class _PlayerContainerState extends State<PlayerContainer>
   Widget build(BuildContext context) {
     final player = context.watch<PlayerState>();
     _screenHeight = MediaQuery.sizeOf(context).height;
+    final navBarHeight = AppBottomBar.heightOf(context);
 
     return AnimatedBuilder(
       animation: _controller,
@@ -81,15 +82,12 @@ class _PlayerContainerState extends State<PlayerContainer>
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: -_navBarHeight * t,
+                bottom: -navBarHeight * t,
                 child: IgnorePointer(
                   ignoring: t > 0.5,
                   child: Opacity(
                     opacity: (1 - t * 1.4).clamp(0.0, 1.0),
-                    child: _MeasureHeight(
-                      onHeight: (h) => _navBarHeight = h,
-                      child: widget.bottomBar!,
-                    ),
+                    child: widget.bottomBar!,
                   ),
                 ),
               ),
@@ -97,7 +95,7 @@ class _PlayerContainerState extends State<PlayerContainer>
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: (widget.bottomBar == null ? 0 : _navBarHeight) * (1 - t),
+                bottom: (widget.bottomBar == null ? 0 : navBarHeight) * (1 - t),
                 height: height,
                 child: GestureDetector(
                   onTap: t < 0.5 ? expand : null,
@@ -152,26 +150,6 @@ class _PlayerContainerState extends State<PlayerContainer>
               ),
           ],
         );
-      },
-    );
-  }
-}
-
-class _MeasureHeight extends StatelessWidget {
-  const _MeasureHeight({required this.child, required this.onHeight});
-
-  final Widget child;
-  final ValueChanged<double> onHeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, _) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final box = context.findRenderObject() as RenderBox?;
-          if (box != null && box.hasSize) onHeight(box.size.height);
-        });
-        return child;
       },
     );
   }

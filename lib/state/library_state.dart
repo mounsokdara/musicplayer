@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,39 +66,80 @@ class LibraryState extends ChangeNotifier {
   /// Grid density, 1–4 columns (§6.7).
   int gridColumns = 2;
 
-  Future<void> load() async {
-    loading = true;
-    notifyListeners();
+  bool _loadRunning = false;
+  bool _askedAllFiles = false;
+  String? loadError;
 
-    if (!await MediaPermissions.request()) {
-      permissionDenied = true;
+  Future<List<T>> _safe<T>(Future<List<T>> f) async {
+    try {
+      return await f.timeout(const Duration(seconds: 45));
+    } catch (e) {
+      debugPrint('library query failed: $e');
+      loadError = '$e';
+      return <T>[];
+    }
+  }
+
+  /// Loads the library. Always ends with `loading == false`, even when a
+  /// query fails or hangs. [quiet] refreshes without showing the spinner.
+  Future<void> load({bool quiet = false}) async {
+    if (_loadRunning) return;
+    _loadRunning = true;
+    loadError = null;
+    if (!quiet) {
+      loading = true;
+      notifyListeners();
+    }
+
+    try {
+      if (!await MediaPermissions.request()) {
+        permissionDenied = true;
+        return;
+      }
+      permissionDenied = false;
+      unawaited(MediaPermissions.requestNotifications());
+      await _loadFilters();
+
+      final results = await Future.wait([
+        _safe(_library.songs()),
+        _safe(_library.albums()),
+        _safe(_library.artists()),
+        _safe(_library.genres()),
+        _safe(_library.playlists()),
+      ]);
+
+      _allSongs = results[0] as List<Song>;
+      allFolders = {for (final song in _allSongs) song.folder};
+      songs = _allSongs.where(_allowed).toList();
+      albums = results[1] as List<AlbumModel>;
+      artists = results[2] as List<ArtistModel>;
+      genres = results[3] as List<GenreModel>;
+      playlists = results[4] as List<PlaylistModel>;
+      _sortSongs();
+
+      // Ask for all-files access once, after the library is on screen.
+      if (!_askedAllFiles) {
+        _askedAllFiles = true;
+        unawaited(MediaPermissions.requestAllFilesAccess());
+      }
+    } catch (e, st) {
+      debugPrint('library load failed: $e\n$st');
+      loadError = '$e';
+    } finally {
+      _loadRunning = false;
       loading = false;
       notifyListeners();
-      return;
     }
-    permissionDenied = false;
-    await MediaPermissions.requestNotifications();
-    await _loadFilters();
+  }
 
-    final results = await Future.wait([
-      _library.songs(),
-      _library.albums(),
-      _library.artists(),
-      _library.genres(),
-      _library.playlists(),
-    ]);
-
-    _allSongs = results[0] as List<Song>;
-    allFolders = {for (final song in _allSongs) song.folder};
-    songs = _allSongs.where(_allowed).toList();
-    albums = results[1] as List<AlbumModel>;
-    artists = results[2] as List<ArtistModel>;
-    genres = results[3] as List<GenreModel>;
-    playlists = results[4] as List<PlaylistModel>;
-
-    _sortSongs();
-    loading = false;
-    notifyListeners();
+  /// Re-index one file after its tags changed, then refresh quietly.
+  Future<void> rescanFile(String path) async {
+    try {
+      await _library.scan(path);
+    } catch (e) {
+      debugPrint('scan failed: $e');
+    }
+    await load(quiet: true);
   }
 
   /// Tapping the active field again reverses the order (§5).

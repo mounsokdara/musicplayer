@@ -3,18 +3,20 @@ import 'package:permission_handler/permission_handler.dart';
 /// Requests media access plus "All files access" (MANAGE_EXTERNAL_STORAGE) so
 /// the app can read, write, rename and delete any file without per-file prompts.
 class MediaPermissions {
+  /// Media access needed to list the library. Never opens the all-files
+  /// settings page, so it always completes quickly.
   static Future<bool> request() async {
-    // All files access (Android 11+). Opens the system settings page.
-    var allFiles = await Permission.manageExternalStorage.status;
-    if (!allFiles.isGranted) {
-      allFiles = await Permission.manageExternalStorage.request();
-    }
+    if (await isGranted) return true;
+    if ((await Permission.audio.request()).isGranted) return true;
+    if ((await Permission.storage.request()).isGranted) return true;
+    return Permission.manageExternalStorage.isGranted;
+  }
 
-    final audio = await Permission.audio.request();
-    final storage =
-        audio.isGranted ? audio : await Permission.storage.request();
-
-    return allFiles.isGranted || audio.isGranted || storage.isGranted;
+  /// All files access (Android 11+). Opens the system settings page; call it
+  /// without awaiting it from the loading path.
+  static Future<void> requestAllFilesAccess() async {
+    if (await Permission.manageExternalStorage.isGranted) return;
+    await Permission.manageExternalStorage.request();
   }
 
   static Future<bool> get hasAllFilesAccess =>

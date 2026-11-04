@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../state/library_state.dart';
 import '../state/player_state.dart';
+import 'app_bottom_bar.dart';
 import 'library_drawer.dart';
 import 'player/player_container.dart';
 import 'tabs/albums_tab.dart';
@@ -91,17 +92,10 @@ class _HomeShellState extends State<HomeShell> {
             hasTrack: player.hasTrack,
             bottomBar: wide
                 ? null
-                : NavigationBar(
+                : AppBottomBar(
                     selectedIndex: _tab,
-                    onDestinationSelected: (i) => setState(() => _tab = i),
-                    destinations: [
-                      for (final d in _destinations)
-                        NavigationDestination(
-                          icon: Icon(d.icon),
-                          selectedIcon: Icon(d.selected),
-                          label: d.label,
-                        ),
-                    ],
+                    onSelected: (i) => setState(() => _tab = i),
+                    destinations: _destinations,
                   ),
           ),
         ],
