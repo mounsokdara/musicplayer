@@ -20,23 +20,47 @@ class Song {
     required this.size,
   });
 
-  factory Song.fromModel(SongModel m) => Song(
-        id: m.id,
-        title: m.title,
-        artist: m.artist ?? 'Unknown artist',
-        album: m.album ?? 'Unknown album',
-        albumId: m.albumId,
-        albumArtist: m.getMap['album_artist'] as String? ?? m.artist ?? '',
-        genre: m.genre ?? '',
-        composer: m.composer ?? '',
-        data: m.data,
-        duration: Duration(milliseconds: m.duration ?? 0),
-        track: m.track ?? 0,
-        year: m.getMap['year'] as int? ?? 0,
-        dateAdded: m.dateAdded ?? 0,
-        dateModified: m.dateModified ?? 0,
-        size: m.size,
-      );
+  /// Tolerant of the system returning numbers as text (e.g. `year` comes
+  /// back as a String) or leaving fields null.
+  factory Song.fromModel(SongModel m) {
+    final map = m.getMap;
+    String? str(String key) {
+      final v = map[key];
+      if (v == null) return null;
+      final t = v.toString().trim();
+      return t.isEmpty || t == '<unknown>' ? null : t;
+    }
+
+    final artist = str('artist');
+    final data = str('_data') ?? '';
+    final fileName = data.contains('/') ? data.split('/').last : data;
+    return Song(
+      id: _int(map['_id']) ?? 0,
+      title: str('title') ?? str('_display_name_wo_ext') ?? fileName,
+      artist: artist ?? 'Unknown artist',
+      album: str('album') ?? 'Unknown album',
+      albumId: _int(map['album_id']),
+      albumArtist: str('album_artist') ?? artist ?? '',
+      genre: str('genre') ?? '',
+      composer: str('composer') ?? '',
+      data: data,
+      duration: Duration(milliseconds: _int(map['duration']) ?? 0),
+      // Track numbers are often encoded as disc*1000+track (e.g. 1005).
+      track: (_int(map['track']) ?? 0) % 1000,
+      year: _int(map['year']) ?? 0,
+      dateAdded: _int(map['date_added']) ?? 0,
+      dateModified: _int(map['date_modified']) ?? 0,
+      size: _int(map['_size']) ?? 0,
+    );
+  }
+
+  static int? _int(Object? v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString().trim()) ??
+        double.tryParse(v.toString().trim())?.toInt();
+  }
 
   final int id;
   final String title;
