@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
@@ -8,25 +9,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/song.dart';
 import '../services/audio_handler.dart';
-import '../services/lyrics/smi_parser.dart';
+import '../services/lyrics/lyrics.dart';
+import '../services/lyrics/lyrics_service.dart';
+import '../services/play_stats.dart';
+import '../services/replay_gain.dart';
+import '../services/scrobbler.dart';
+import '../services/settings_service.dart';
 
 enum RepeatMode { off, all, one }
 
 class PlayerState extends ChangeNotifier {
-  PlayerState(this.handler) {
+  PlayerState(
+    this.handler, {
+    required this.stats,
+    required this.scrobbler,
+    required this.settings,
+  }) {
     handler.player.playerStateStream.listen((_) => notifyListeners());
     handler.player.currentIndexStream.listen((i) {
       if (i != null && i >= 0 && i < _queue.length) {
         _index = i;
-        _loadLyrics();
-        _updateArtworkColor();
+        _onTrackChanged();
         notifyListeners();
       }
     });
+    handler.player.positionStream.listen(_onPosition);
     _restoreFavorites();
   }
 
   final MusicAudioHandler handler;
+  final PlayStats stats;
+  final Scrobbler scrobbler;
+  final SettingsService settings;
+
+  bool _counted = false;
+  DateTime _startedAt = DateTime.now();
   final OnAudioQuery _query = OnAudioQuery();
 
   List<Song> _queue = [];
@@ -34,7 +51,8 @@ class PlayerState extends ChangeNotifier {
   RepeatMode repeat = RepeatMode.off;
   bool shuffle = false;
   bool lyricsVisible = false;
-  SmiLyrics? lyrics;
+  Lyrics? lyrics;
+  bool lyricsBusy = false;
   Color artworkColor = const Color(0xFF4A6FA5);
   Timer? _sleepTimer;
   Duration? sleepRemaining;
@@ -59,9 +77,8 @@ class PlayerState extends ChangeNotifier {
     _queue = List.of(songs);
     _index = startIndex;
     await handler.setQueue(_queue, startIndex: startIndex);
-    await handler.play();
-    _loadLyrics();
-    _updateArtworkColor();
+    unawaited(handler.play());
+    _onTrackChanged();
     notifyListeners();
   }
 
@@ -92,7 +109,7 @@ class PlayerState extends ChangeNotifier {
 
   Future<void> playQueueItem(int i) async {
     await handler.skipToQueueItem(i);
-    await handler.play();
+    unawaited(handler.play());
   }
 
   Future<void> reorderQueue(int from, int to) async {
@@ -191,11 +208,97 @@ class PlayerState extends ChangeNotifier {
     notifyListeners();
   }
 
+  int? _lastChangeId;
+  DateTime _lastChangeAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  void _onTrackChanged() {
+    final now = DateTime.now();
+    final id = current?.id;
+    if (id != null &&
+        _lastChangeId == id &&
+        now.difference(_lastChangeAt) < const Duration(milliseconds: 800)) {
+      return;
+    }
+    _lastChangeId = id;
+    _lastChangeAt = now;
+    _counted = false;
+    _startedAt = now;
+    _loadLyrics();
+    _updateArtworkColor();
+    _applyReplayGain();
+    final song = current;
+    if (song != null) scrobbler.nowPlaying(song);
+  }
+
+  void _onPosition(Duration pos) {
+    final song = current;
+    if (song == null || _counted || !handler.player.playing) return;
+    final total = duration;
+    if (total == Duration.zero) return;
+    final threshold =
+        Duration(milliseconds: math.min(total.inMilliseconds ~/ 2, 240000));
+    if (pos < threshold) return;
+    _counted = true;
+    stats.recordPlay(song);
+    if (total >= const Duration(seconds: 30)) {
+      scrobbler.scrobble(song, _startedAt);
+    }
+  }
+
+  Future<void> _applyReplayGain() async {
+    final song = current;
+    if (song == null) return;
+    var volume = 1.0;
+    if (settings.replayGain) {
+      final gain = await ReplayGain.read(song.data);
+      if (gain != null) {
+        volume = math.min(1.0, math.pow(10, gain / 20).toDouble());
+      }
+    }
+    if (current?.id != song.id) return;
+    handler.baseVolume = volume;
+    await handler.player.setVolume(volume);
+  }
+
   Future<void> _loadLyrics() async {
     final song = current;
     if (song == null) return;
-    lyrics = await SmiParser.forAudioFile(song.data);
+    lyrics = null;
+    lyricsBusy = true;
     notifyListeners();
+
+    var loaded = await LyricsService.load(song);
+    if (loaded == null && settings.autoDownloadLyrics) {
+      final text = await LyricsService.download(song);
+      if (text != null) {
+        await LyricsService.save(song, text);
+        loaded = LyricsService.parseText(text);
+      }
+    }
+    if (current?.id != song.id) return;
+    lyrics = loaded;
+    lyricsBusy = false;
+    notifyListeners();
+  }
+
+  Future<bool> downloadLyrics(Song song) async {
+    final isCurrent = current?.id == song.id;
+    if (isCurrent) {
+      lyricsBusy = true;
+      notifyListeners();
+    }
+    final text = await LyricsService.download(song);
+    if (text != null) await LyricsService.save(song, text);
+    if (isCurrent && current?.id == song.id) {
+      lyrics = text == null ? lyrics : LyricsService.parseText(text);
+      lyricsBusy = false;
+      notifyListeners();
+    }
+    return text != null;
+  }
+
+  Future<void> refreshLyrics(Song song) async {
+    if (current?.id == song.id) await _loadLyrics();
   }
 
   /// Dynamic background from album art (§6.4).

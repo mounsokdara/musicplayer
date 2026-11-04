@@ -67,3 +67,21 @@ entry points in place. Test on a real device before publishing.
 ## APK
 
 `flutter build apk --release` → `build/app/outputs/flutter-apk/app-release.apk`
+
+## Features added from the BoomingMusic feature list
+
+Written from scratch for this project (BoomingMusic itself is GPL-3.0 and no
+code was copied from it):
+
+- Lyrics: LRC, word-by-word (enhanced LRC), TTML and SAMI; dual-language
+  translations; automatic download from LRCLIB; built-in lyrics editor with a
+  "insert timestamp" helper
+- Smart playlists: History, Most played, Recently played, Recently added
+- Scrobbling to Last.fm and ListenBrainz with an offline retry queue
+- AutoEq import (ParametricEQ / GraphicEQ text) mapped onto the device
+  equalizer bands, plus saved equalizer profiles
+- Artist images (Deezer) with on-device caching
+- Folder blacklist and whitelist, persisted
+- Android Auto media browsing (Songs, Favorites, Most played, History,
+  Recently added)
+- Fade in/out on play/pause and ReplayGain (attenuation only)

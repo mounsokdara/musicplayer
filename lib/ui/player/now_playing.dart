@@ -8,6 +8,7 @@ import '../../models/song.dart';
 import '../../state/player_state.dart';
 import '../equalizer_screen.dart';
 import '../widgets/song_artwork.dart';
+import 'lyrics_editor.dart';
 import 'lyrics_view.dart';
 import 'up_next.dart';
 
@@ -445,7 +446,15 @@ void _showMenu(BuildContext context, Song song) {
               ListTile(
                 leading: const Icon(Icons.lyrics_outlined),
                 title: const Text('Edit lyrics'),
-                onTap: () => soon('Lyrics editor'),
+                onTap: () {
+                  close();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LyricsEditorScreen(song: song),
+                    ),
+                  );
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.info_outline),

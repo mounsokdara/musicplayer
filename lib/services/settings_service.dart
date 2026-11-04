@@ -59,6 +59,12 @@ class SettingsService extends ChangeNotifier {
   int get recentlyPlayedDays => _prefs.getInt('recentlyPlayedDays') ?? 7;
   set recentlyPlayedDays(int v) => _set('recentlyPlayedDays', v);
 
+  bool get autoDownloadLyrics => _prefs.getBool('autoLyrics') ?? false;
+  set autoDownloadLyrics(bool v) => _set('autoLyrics', v);
+
+  bool get showLyricsTranslation => _prefs.getBool('lyricsTranslation') ?? true;
+  set showLyricsTranslation(bool v) => _set('lyricsTranslation', v);
+
   void _set(String key, Object value) {
     switch (value) {
       case final int v:

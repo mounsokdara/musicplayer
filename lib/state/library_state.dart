@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/song.dart';
 import '../services/media_library.dart';
@@ -49,6 +50,10 @@ class LibraryState extends ChangeNotifier {
   List<PlaylistModel> playlists = [];
 
   final Set<String> blacklistedFolders = {};
+  final Set<String> whitelistedFolders = {};
+  bool useWhitelist = false;
+  Set<String> allFolders = {};
+  List<Song> _allSongs = [];
 
   SongSortField songSort = SongSortField.name;
   bool songAscending = true;
@@ -71,6 +76,7 @@ class LibraryState extends ChangeNotifier {
     }
     permissionDenied = false;
     await MediaPermissions.requestNotifications();
+    await _loadFilters();
 
     final results = await Future.wait([
       _library.songs(),
@@ -80,9 +86,9 @@ class LibraryState extends ChangeNotifier {
       _library.playlists(),
     ]);
 
-    songs = (results[0] as List<Song>)
-        .where((s) => !blacklistedFolders.contains(s.folder))
-        .toList();
+    _allSongs = results[0] as List<Song>;
+    allFolders = {for (final song in _allSongs) song.folder};
+    songs = _allSongs.where(_allowed).toList();
     albums = results[1] as List<AlbumModel>;
     artists = results[2] as List<ArtistModel>;
     genres = results[3] as List<GenreModel>;
@@ -120,10 +126,64 @@ class LibraryState extends ChangeNotifier {
     notifyListeners();
   }
 
+  static bool _inside(String folder, String root) =>
+      folder == root || folder.startsWith('$root/');
+
+  bool _allowed(Song song) {
+    if (useWhitelist && whitelistedFolders.isNotEmpty) {
+      return whitelistedFolders.any((f) => _inside(song.folder, f));
+    }
+    return !blacklistedFolders.any((f) => _inside(song.folder, f));
+  }
+
+  Future<void> _loadFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    blacklistedFolders
+      ..clear()
+      ..addAll(prefs.getStringList('blacklist') ?? const []);
+    whitelistedFolders
+      ..clear()
+      ..addAll(prefs.getStringList('whitelist') ?? const []);
+    useWhitelist = prefs.getBool('useWhitelist') ?? false;
+  }
+
+  Future<void> _saveFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('blacklist', blacklistedFolders.toList());
+    await prefs.setStringList('whitelist', whitelistedFolders.toList());
+    await prefs.setBool('useWhitelist', useWhitelist);
+  }
+
+  void _applyFilters() {
+    songs = _allSongs.where(_allowed).toList();
+    _sortSongs();
+    notifyListeners();
+    _saveFilters();
+  }
+
   void blacklistFolder(String folder) {
     blacklistedFolders.add(folder);
-    songs = songs.where((s) => s.folder != folder).toList();
-    notifyListeners();
+    _applyFilters();
+  }
+
+  void unblacklistFolder(String folder) {
+    blacklistedFolders.remove(folder);
+    _applyFilters();
+  }
+
+  void whitelistFolder(String folder) {
+    whitelistedFolders.add(folder);
+    _applyFilters();
+  }
+
+  void unwhitelistFolder(String folder) {
+    whitelistedFolders.remove(folder);
+    _applyFilters();
+  }
+
+  void setUseWhitelist(bool value) {
+    useWhitelist = value;
+    _applyFilters();
   }
 
   List<Song> search(String query) {

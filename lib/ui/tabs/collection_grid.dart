@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../../models/song.dart';
 import '../../state/library_state.dart';
+import '../../services/settings_service.dart';
 import '../../state/player_state.dart';
 import '../sheets/sort_sheet.dart';
+import '../widgets/artist_image.dart';
 import '../widgets/song_artwork.dart';
 import 'library_header.dart';
 import 'songs_tab.dart';
@@ -123,12 +125,17 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final artistImages = artworkType == ArtworkType.ARTIST &&
+        context.watch<SettingsService>().downloadMetadata;
+    Widget art(double size, double radius) => artistImages
+        ? ArtistImage(id: item.id, name: item.title, size: size, radius: radius)
+        : SongArtwork(id: item.id, type: artworkType, size: size, radius: radius);
 
     if (single) {
       return Card(
         child: ListTile(
           onTap: () => _open(context),
-          leading: SongArtwork(id: item.id, type: artworkType, size: 56),
+          leading: art(56, 10),
           title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
@@ -144,12 +151,7 @@ class _Tile extends StatelessWidget {
           AspectRatio(
             aspectRatio: 1,
             child: LayoutBuilder(
-              builder: (_, box) => SongArtwork(
-                id: item.id,
-                type: artworkType,
-                size: box.maxWidth,
-                radius: 16,
-              ),
+              builder: (_, box) => art(box.maxWidth, 16),
             ),
           ),
           const SizedBox(height: 8),

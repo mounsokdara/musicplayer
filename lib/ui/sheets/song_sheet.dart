@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../models/song.dart';
 import '../../state/library_state.dart';
 import '../../state/player_state.dart';
+import '../player/lyrics_editor.dart';
 import '../widgets/song_artwork.dart';
 
 /// 3-dot bottom sheet for a song row (§6.2).
@@ -88,7 +89,15 @@ Future<void> showSongSheet(BuildContext context, Song song) {
               ListTile(
                 leading: const Icon(Icons.lyrics_outlined),
                 title: const Text('Edit lyrics'),
-                onTap: () => todo('Lyrics editor'),
+                onTap: () {
+                  final nav = Navigator.of(context);
+                  close();
+                  nav.push(
+                    MaterialPageRoute(
+                      builder: (_) => LyricsEditorScreen(song: song),
+                    ),
+                  );
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.block),

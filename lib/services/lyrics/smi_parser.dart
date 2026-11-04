@@ -2,43 +2,7 @@ import 'dart:io';
 
 import 'package:html_unescape/html_unescape.dart';
 
-/// One synced lyric line.
-class LyricLine {
-  const LyricLine({required this.start, required this.text});
-
-  /// Start time from the beginning of the track.
-  final Duration start;
-  final String text;
-
-  bool get isBlank => text.trim().isEmpty;
-}
-
-/// Parsed .smi (SAMI) document.
-class SmiLyrics {
-  SmiLyrics({required this.title, required this.lines});
-
-  final String? title;
-  final List<LyricLine> lines;
-
-  bool get isEmpty => lines.isEmpty;
-
-  /// Index of the line that should be highlighted at [position], or -1.
-  int indexAt(Duration position) {
-    var lo = 0;
-    var hi = lines.length - 1;
-    var found = -1;
-    while (lo <= hi) {
-      final mid = (lo + hi) ~/ 2;
-      if (lines[mid].start <= position) {
-        found = mid;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    return found;
-  }
-}
+import 'lyrics.dart';
 
 /// Parser for SAMI synced-lyrics files.
 ///
@@ -62,7 +26,7 @@ class SmiParser {
   /// Parse SAMI [source]. Blank (`&nbsp;`) cues are kept so that a line can be
   /// cleared while an instrumental section plays; pass
   /// [keepBlankCues] = false to drop them.
-  static SmiLyrics parse(String source, {bool keepBlankCues = true}) {
+  static Lyrics parse(String source, {bool keepBlankCues = true}) {
     final cleaned = source.replaceAll(_styleRe, '').replaceAll(_commentRe, '');
 
     final title = _titleRe.firstMatch(source)?.group(1)?.trim();
@@ -89,11 +53,11 @@ class SmiParser {
     }
 
     lines.sort((a, b) => a.start.compareTo(b.start));
-    return SmiLyrics(title: title, lines: lines);
+    return Lyrics(title: title, lines: lines);
   }
 
   /// Load lyrics sitting next to an audio file (`song.mp3` -> `song.smi`).
-  static Future<SmiLyrics?> forAudioFile(String audioPath) async {
+  static Future<Lyrics?> forAudioFile(String audioPath) async {
     final dot = audioPath.lastIndexOf('.');
     final base = dot == -1 ? audioPath : audioPath.substring(0, dot);
     for (final ext in const ['.smi', '.sami', '.SMI']) {

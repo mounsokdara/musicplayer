@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/settings_service.dart';
+import '../library_filters_screen.dart';
+import 'scrobble_settings.dart';
 
 /// Settings sections per §6.9. Add new sections to [_sections].
 class SettingsScreen extends StatelessWidget {
@@ -170,6 +172,15 @@ final _sections = <_Section>[
         onChanged: (v) => s.splitMultipleArtists = v,
       ),
       ListTile(
+        title: const Text('Folder filters'),
+        subtitle: const Text('Blacklist and whitelist folders'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LibraryFiltersScreen()),
+        ),
+      ),
+      ListTile(
         title: const Text('Ignore tracks shorter than'),
         subtitle: Text('${s.minTrackSeconds} seconds'),
         trailing: SizedBox(
@@ -195,7 +206,8 @@ final _sections = <_Section>[
         onChanged: (v) => s.cacheImages = v,
       ),
       SwitchListTile(
-        title: const Text('Download missing metadata'),
+        title: const Text('Download artist images'),
+        subtitle: const Text('Fetched from Deezer and cached on the device'),
         value: s.downloadMetadata,
         onChanged: (v) => s.downloadMetadata = v,
       ),
@@ -213,6 +225,7 @@ final _sections = <_Section>[
       ),
       SwitchListTile(
         title: const Text('Replay gain'),
+        subtitle: const Text('Lowers loud tracks using their ReplayGain tags'),
         value: s.replayGain,
         onChanged: (v) => s.replayGain = v,
       ),
@@ -220,6 +233,41 @@ final _sections = <_Section>[
         title: const Text('Gapless playback'),
         value: s.gaplessPlayback,
         onChanged: (v) => s.gaplessPlayback = v,
+      ),
+    ],
+  ),
+  _Section(
+    Icons.lyrics_outlined,
+    'Lyrics',
+    'Download, translations',
+    (context, s) => [
+      SwitchListTile(
+        title: const Text('Download lyrics automatically'),
+        subtitle: const Text('Fetched from LRCLIB when a track has none'),
+        value: s.autoDownloadLyrics,
+        onChanged: (v) => s.autoDownloadLyrics = v,
+      ),
+      SwitchListTile(
+        title: const Text('Show translations'),
+        subtitle: const Text('Dual-language LRC and TTML lyrics'),
+        value: s.showLyricsTranslation,
+        onChanged: (v) => s.showLyricsTranslation = v,
+      ),
+    ],
+  ),
+  _Section(
+    Icons.podcasts,
+    'Scrobbling',
+    'Last.fm and ListenBrainz',
+    (context, s) => [
+      ListTile(
+        title: const Text('Scrobbling accounts'),
+        subtitle: const Text('Sign in to Last.fm or ListenBrainz'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ScrobbleSettingsScreen()),
+        ),
       ),
     ],
   ),

@@ -39,6 +39,31 @@ class MusicAudioHandler extends BaseAudioHandler
 
   AudioPlayer get player => _player;
 
+  bool fadeEnabled = false;
+  double baseVolume = 1.0;
+
+  Future<List<MediaItem>> Function(String parentMediaId)? onBrowse;
+  Future<void> Function(String mediaId)? onPlayFromId;
+
+  Future<void> _ramp(double from, double to) async {
+    const steps = 12;
+    for (var i = 1; i <= steps; i++) {
+      await _player.setVolume(from + (to - from) * i / steps);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
+  }
+
+  @override
+  Future<List<MediaItem>> getChildren(String parentMediaId,
+          [Map<String, dynamic>? options]) async =>
+      await onBrowse?.call(parentMediaId) ?? <MediaItem>[];
+
+  @override
+  Future<void> playFromMediaId(String mediaId,
+      [Map<String, dynamic>? extras]) async {
+    await onPlayFromId?.call(mediaId);
+  }
+
   Future<void> setQueue(List<Song> songs, {int startIndex = 0}) async {
     final items = songs.map(_toItem).toList();
     queue.add(items);
@@ -86,9 +111,21 @@ class MusicAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() async {
+    if (!fadeEnabled) return _player.play();
+    await _player.setVolume(0);
+    final playing = _player.play();
+    await _ramp(0, baseVolume);
+    return playing;
+  }
+
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    if (!fadeEnabled || !_player.playing) return _player.pause();
+    await _ramp(_player.volume, 0);
+    await _player.pause();
+    await _player.setVolume(baseVolume);
+  }
   @override
   Future<void> seek(Duration position) => _player.seek(position);
   @override
@@ -129,6 +166,9 @@ class MusicAudioHandler extends BaseAudioHandler
         album: s.album,
         genre: s.genre,
         duration: s.duration,
+        artUri: s.albumId == null
+            ? null
+            : Uri.parse('content://media/external/audio/albumart/${s.albumId}'),
         extras: {'songId': s.id, 'albumId': s.albumId},
       );
 

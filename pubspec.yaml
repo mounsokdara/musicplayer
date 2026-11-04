@@ -34,6 +34,11 @@ dependencies:
   path: ^1.9.0
   html_unescape: ^2.0.0
   marquee: ^2.2.3
+  # Lyrics download, scrobbling, artist images
+  http: ^1.2.2
+  path_provider: ^2.1.5
+  xml: ^6.5.0
+  crypto: ^3.0.5
 
 dev_dependencies:
   flutter_test:

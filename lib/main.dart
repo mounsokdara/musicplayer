@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'services/audio_handler.dart';
+import 'services/auto_browser.dart';
 import 'services/media_library.dart';
+import 'services/play_stats.dart';
+import 'services/scrobbler.dart';
 import 'services/settings_service.dart';
 import 'state/library_state.dart';
 import 'state/player_state.dart';
@@ -19,19 +22,43 @@ Future<void> main() async {
       const Duration(seconds: 15),
     );
     final settings = await SettingsService.load();
+    final stats = await PlayStats.load();
+    final scrobbler = await Scrobbler.load();
+    final library = LibraryState(MediaLibrary());
+    final player = PlayerState(
+      audioHandler,
+      stats: stats,
+      scrobbler: scrobbler,
+      settings: settings,
+    );
+
+    audioHandler.fadeEnabled = settings.fadeAudio;
+    settings.addListener(() {
+      audioHandler.fadeEnabled = settings.fadeAudio;
+    });
+
+    AutoBrowser(
+      handler: audioHandler,
+      library: library,
+      stats: stats,
+      player: player,
+      settings: settings,
+    );
 
     runApp(
       MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: settings),
-          ChangeNotifierProvider(
-            create: (_) => LibraryState(MediaLibrary())..load(),
-          ),
-          ChangeNotifierProvider(create: (_) => PlayerState(audioHandler)),
+          ChangeNotifierProvider.value(value: library),
+          ChangeNotifierProvider.value(value: player),
+          ChangeNotifierProvider.value(value: stats),
+          ChangeNotifierProvider.value(value: scrobbler),
         ],
         child: const MusicApp(),
       ),
     );
+
+    library.load();
   } catch (e, st) {
     runApp(_StartupError(error: '$e\n\n$st'));
   }

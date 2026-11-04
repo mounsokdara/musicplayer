@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/song.dart';
 import '../../state/library_state.dart';
+import '../../services/play_stats.dart';
+import '../../services/settings_service.dart';
 import '../../state/player_state.dart';
 import '../sheets/sort_sheet.dart';
 import '../widgets/song_artwork.dart';
@@ -17,6 +19,47 @@ class PlaylistsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final library = context.watch<LibraryState>();
     final player = context.read<PlayerState>();
+    final stats = context.watch<PlayStats>();
+    final settings = context.watch<SettingsService>();
+
+    final byId = {for (final s in library.songs) s.id: s};
+    List<Song> byIds(List<int> ids) => [
+          for (final id in ids)
+            if (byId[id] != null) byId[id]!,
+        ];
+    final addedCutoff = DateTime.now()
+            .subtract(Duration(days: settings.recentlyAddedDays))
+            .millisecondsSinceEpoch ~/
+        1000;
+    final added = library.songs.where((s) => s.dateAdded >= addedCutoff).toList()
+      ..sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
+    final smart = <({IconData icon, String title, List<Song> songs})>[
+      (
+        icon: Icons.favorite_outline,
+        title: 'Favorites',
+        songs: library.songs.where(player.isFavorite).toList(),
+      ),
+      (
+        icon: Icons.history,
+        title: 'History',
+        songs: byIds(stats.historyIds()),
+      ),
+      (
+        icon: Icons.trending_up,
+        title: 'Most played',
+        songs: byIds(stats.mostPlayedIds()),
+      ),
+      (
+        icon: Icons.schedule,
+        title: 'Recently played',
+        songs: byIds(stats.recentIds(settings.recentlyPlayedDays)),
+      ),
+      (
+        icon: Icons.new_releases_outlined,
+        title: 'Recently added',
+        songs: added,
+      ),
+    ];
 
     final sorted = List<PlaylistModel>.of(library.playlists)
       ..sort((a, b) {
@@ -55,30 +98,17 @@ class PlaylistsTab extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
                 children: [
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => _openVirtual(
-                        context,
-                        'Favorites',
-                        library.songs
-                            .where((s) => player.isFavorite(s))
-                            .toList(),
-                      ),
-                      icon: const Icon(Icons.favorite_outline),
-                      label: const Text('Favorites'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.tonalIcon(
+                  for (final entry in smart)
+                    ActionChip(
+                      avatar: Icon(entry.icon, size: 18),
+                      label: Text(entry.title),
                       onPressed: () =>
-                          _openVirtual(context, 'History', player.queue),
-                      icon: const Icon(Icons.history),
-                      label: const Text('History'),
+                          _openVirtual(context, entry.title, entry.songs),
                     ),
-                  ),
                 ],
               ),
             ),
