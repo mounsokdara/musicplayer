@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/permissions.dart';
 import '../state/library_state.dart';
 import '../state/player_state.dart';
 import 'app_bottom_bar.dart';
@@ -21,8 +22,36 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int _tab = 0;
+  DateTime _lastRefresh = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Coming back to the app (e.g. from Settings after granting access, or
+  /// after downloading new music) refreshes the library.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final library = context.read<LibraryState>();
+    if (library.permissionDenied) {
+      library.load();
+    } else if (DateTime.now().difference(_lastRefresh) >
+        const Duration(minutes: 2)) {
+      _lastRefresh = DateTime.now();
+      library.load(quiet: true);
+    }
+  }
 
   static const _destinations = [
     (icon: Icons.music_note_outlined, selected: Icons.music_note, label: 'Songs'),
@@ -133,6 +162,11 @@ class _PermissionScreen extends StatelessWidget {
               FilledButton(
                 onPressed: () => context.read<LibraryState>().load(),
                 child: const Text('Grant access'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: MediaPermissions.openSettings,
+                child: const Text('Open app settings'),
               ),
             ],
           ),

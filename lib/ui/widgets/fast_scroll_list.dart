@@ -36,6 +36,7 @@ class _FastScrollListState extends State<FastScrollList> {
   }
 
   void _jumpToLetter(String letter) {
+    if (!_controller.hasClients) return;
     for (var i = 0; i < widget.itemCount; i++) {
       final l = widget.labelAt(i).toUpperCase();
       final normalized = RegExp(r'[A-Z]').hasMatch(l) ? l : '#';

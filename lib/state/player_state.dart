@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart'
+    show LoopMode, PositionDiscontinuityReason;
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,6 +36,20 @@ class PlayerState extends ChangeNotifier {
       }
     });
     handler.player.positionStream.listen(_onPosition);
+    // Repeat-one loops the same index, so no track-change event fires: count
+    // each loop as a new play (stats + scrobble).
+    handler.player.positionDiscontinuityStream.listen((d) {
+      if (d.reason == PositionDiscontinuityReason.autoAdvance &&
+          handler.player.loopMode == LoopMode.one) {
+        _counted = false;
+        _startedAt = DateTime.now();
+        final song = current;
+        if (song != null) scrobbler.nowPlaying(song);
+      }
+    });
+    handler.player.playingStream.listen((playing) {
+      if (!playing) _writePosition();
+    });
     _restoreFavorites();
   }
 
@@ -74,12 +90,14 @@ class PlayerState extends ChangeNotifier {
 
   Future<void> playAll(List<Song> songs, int startIndex) async {
     if (songs.isEmpty) return;
+    final start = startIndex.clamp(0, songs.length - 1);
     _queue = List.of(songs);
-    _index = startIndex;
-    await handler.setQueue(_queue, startIndex: startIndex);
+    _index = start;
+    await handler.setQueue(_queue, startIndex: start);
     unawaited(handler.play());
     _onTrackChanged();
     notifyListeners();
+    _saveQueue();
   }
 
   Future<void> toggle() =>
@@ -90,21 +108,28 @@ class PlayerState extends ChangeNotifier {
 
   Future<void> stopPlayback() async {
     await handler.stop();
+    await handler.clearQueue();
     _queue = [];
     _index = -1;
     notifyListeners();
+    _saveQueue();
   }
 
   Future<void> playNext(Song s) async {
+    // Nothing loaded yet: "play next" just starts the song.
+    if (_queue.isEmpty) return playAll([s], 0);
     await handler.addNext(s);
-    if (_index + 1 <= _queue.length) _queue.insert(_index + 1, s);
+    _queue.insert((_index + 1).clamp(0, _queue.length), s);
     notifyListeners();
+    _saveQueue();
   }
 
   Future<void> addToQueue(Song s) async {
+    if (_queue.isEmpty) return playAll([s], 0);
     await handler.addToQueue(s);
     _queue.add(s);
     notifyListeners();
+    _saveQueue();
   }
 
   Future<void> playQueueItem(int i) async {
@@ -116,6 +141,7 @@ class PlayerState extends ChangeNotifier {
     if (to > from) to -= 1;
     await handler.moveQueueItem(from, to);
     _queue.insert(to, _queue.removeAt(from));
+    _saveQueue();
     if (_index == from) {
       _index = to;
     } else if (from < _index && to >= _index) {
@@ -131,6 +157,7 @@ class PlayerState extends ChangeNotifier {
     _queue.removeAt(i);
     if (i < _index) _index -= 1;
     notifyListeners();
+    _saveQueue();
   }
 
   Future<void> clearQueue() async {
@@ -138,6 +165,7 @@ class PlayerState extends ChangeNotifier {
     _queue = [];
     _index = -1;
     notifyListeners();
+    _saveQueue();
   }
 
   /// Off -> Repeat All -> Repeat One (§6.4).
@@ -224,7 +252,76 @@ class PlayerState extends ChangeNotifier {
   int? _lastChangeId;
   DateTime _lastChangeAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  void _onTrackChanged() {
+  // ---- Session persistence: queue + position survive app restarts ----
+
+  Timer? _saveTimer;
+  DateTime _lastPositionSave = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Debounced: the id list can be large, so only write it when it changes.
+  void _saveQueue() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(seconds: 1), _writeQueue);
+  }
+
+  Future<void> _writeQueue() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_queue.isEmpty) {
+        await prefs.remove('session_ids');
+        await prefs.remove('session_current');
+        await prefs.remove('session_pos');
+        return;
+      }
+      await prefs.setStringList(
+          'session_ids', _queue.map((s) => '${s.id}').toList());
+      await prefs.setInt('session_current', current?.id ?? _queue.first.id);
+      await prefs.setInt('session_pos', handler.player.position.inMilliseconds);
+    } catch (e) {
+      debugPrint('session save failed: $e');
+    }
+  }
+
+  Future<void> _writePosition() async {
+    _lastPositionSave = DateTime.now();
+    if (_queue.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('session_current', current?.id ?? _queue.first.id);
+      await prefs.setInt('session_pos', handler.player.position.inMilliseconds);
+    } catch (_) {}
+  }
+
+  /// Puts the last queue back (paused) once the library is loaded.
+  Future<void> restoreSession(List<Song> library) async {
+    if (_queue.isNotEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ids = prefs.getStringList('session_ids');
+      if (ids == null || ids.isEmpty) return;
+      final byId = {for (final s in library) s.id: s};
+      final songs = [
+        for (final raw in ids)
+          if (byId[int.tryParse(raw)] case final song?) song,
+      ];
+      if (songs.isEmpty) return;
+      final currentId = prefs.getInt('session_current');
+      var start = songs.indexWhere((s) => s.id == currentId);
+      var position = Duration(milliseconds: prefs.getInt('session_pos') ?? 0);
+      if (start < 0) {
+        start = 0;
+        position = Duration.zero;
+      }
+      _queue = songs;
+      _index = start;
+      await handler.setQueue(songs, startIndex: start, position: position);
+      _onTrackChanged(announce: false);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('session restore failed: $e');
+    }
+  }
+
+  void _onTrackChanged({bool announce = true}) {
     final now = DateTime.now();
     final id = current?.id;
     if (id != null &&
@@ -240,10 +337,16 @@ class PlayerState extends ChangeNotifier {
     _updateArtworkColor();
     _applyReplayGain();
     final song = current;
-    if (song != null) scrobbler.nowPlaying(song);
+    if (announce && song != null) scrobbler.nowPlaying(song);
+    _saveQueue();
   }
 
   void _onPosition(Duration pos) {
+    if (handler.player.playing &&
+        DateTime.now().difference(_lastPositionSave) >
+            const Duration(seconds: 15)) {
+      _writePosition();
+    }
     final song = current;
     if (song == null || _counted || !handler.player.playing) return;
     final total = duration;
@@ -339,6 +442,7 @@ class PlayerState extends ChangeNotifier {
   @override
   void dispose() {
     _sleepTimer?.cancel();
+    _saveTimer?.cancel();
     super.dispose();
   }
 }

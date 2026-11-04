@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:just_audio/just_audio.dart';
 
 import '../models/song.dart';
@@ -21,21 +24,30 @@ Future<MusicAudioHandler> initAudioService() async {
 class MusicAudioHandler extends BaseAudioHandler
     with QueueHandler, SeekHandler {
   MusicAudioHandler() {
-    _player.playbackEventStream.listen(_broadcastState);
+    _player.playbackEventStream.listen(
+      _broadcastState,
+      // A missing/corrupt file must not freeze playback: skip to the next one.
+      onError: (Object e, StackTrace st) {
+        debugPrint('playback error: $e');
+        if (_player.hasNext) _player.seekToNext();
+      },
+    );
     _player.currentIndexStream.listen((i) {
       if (i != null && i < queue.value.length) {
         mediaItem.add(queue.value[i]);
       }
     });
-    _player.processingStateStream.listen((s) {
+    _player.processingStateStream.listen((s) async {
+      // End of the queue: stay on the last track, paused at the start.
       if (s == ProcessingState.completed && !_player.hasNext) {
-        stop();
+        await _player.pause();
+        await _player.seek(Duration.zero);
       }
     });
   }
 
   final AudioPlayer _player = AudioPlayer();
-  final _playlist = ConcatenatingAudioSource(children: []);
+  ConcatenatingAudioSource _playlist = ConcatenatingAudioSource(children: []);
 
   AudioPlayer get player => _player;
 
@@ -45,12 +57,27 @@ class MusicAudioHandler extends BaseAudioHandler
   Future<List<MediaItem>> Function(String parentMediaId)? onBrowse;
   Future<void> Function(String mediaId)? onPlayFromId;
 
-  Future<void> _ramp(double from, double to) async {
+  int _rampId = 0;
+
+  /// Linear volume ramp. Returns false if a newer ramp/play/pause took over,
+  /// so quick play/pause taps can never leave the volume stuck at 0.
+  Future<bool> _ramp(double from, double to) async {
+    final id = ++_rampId;
     const steps = 12;
     for (var i = 1; i <= steps; i++) {
+      if (id != _rampId) return false;
       await _player.setVolume(from + (to - from) * i / steps);
       await Future<void>.delayed(const Duration(milliseconds: 30));
     }
+    return id == _rampId;
+  }
+
+  void _startPlayback() {
+    // just_audio's play() only completes when playback pauses or ends, so it
+    // must never be awaited by callers.
+    unawaited(_player.play().catchError((Object e) {
+      debugPrint('play failed: $e');
+    }));
   }
 
   @override
@@ -64,19 +91,31 @@ class MusicAudioHandler extends BaseAudioHandler
     await onPlayFromId?.call(mediaId);
   }
 
-  Future<void> setQueue(List<Song> songs, {int startIndex = 0}) async {
+  Future<void> setQueue(
+    List<Song> songs, {
+    int startIndex = 0,
+    Duration position = Duration.zero,
+  }) async {
+    if (songs.isEmpty) return;
+    final index = startIndex.clamp(0, songs.length - 1);
     final items = songs.map(_toItem).toList();
     queue.add(items);
-    await _playlist.clear();
-    await _playlist.addAll(
-      songs.map((s) => AudioSource.file(s.data, tag: _toItem(s))).toList(),
-    );
-    if (_player.audioSource == null) {
-      await _player.setAudioSource(_playlist, initialIndex: startIndex);
-    } else {
-      await _player.seek(Duration.zero, index: startIndex);
+    mediaItem.add(items[index]);
+    // A fresh source each time: clearing a playing ConcatenatingAudioSource
+    // briefly reports "completed" and could stop playback at random.
+    _playlist = ConcatenatingAudioSource(children: [
+      for (var i = 0; i < songs.length; i++)
+        AudioSource.file(songs[i].data, tag: items[i]),
+    ]);
+    try {
+      await _player.setAudioSource(
+        _playlist,
+        initialIndex: index,
+        initialPosition: position,
+      );
+    } catch (e) {
+      debugPrint('setAudioSource failed: $e');
     }
-    mediaItem.add(items[startIndex]);
   }
 
   Future<void> addNext(Song song) async {
@@ -106,26 +145,38 @@ class MusicAudioHandler extends BaseAudioHandler
 
   Future<void> clearQueue() async {
     await _player.stop();
-    await _playlist.clear();
+    _playlist = ConcatenatingAudioSource(children: []);
     queue.add([]);
+    mediaItem.add(null);
   }
 
   @override
   Future<void> play() async {
-    if (!fadeEnabled) return _player.play();
+    if (!fadeEnabled) {
+      _rampId++; // cancel any running fade
+      await _player.setVolume(baseVolume);
+      _startPlayback();
+      return;
+    }
+    _rampId++;
     await _player.setVolume(0);
-    final playing = _player.play();
+    _startPlayback();
     await _ramp(0, baseVolume);
-    return playing;
   }
 
   @override
   Future<void> pause() async {
-    if (!fadeEnabled || !_player.playing) return _player.pause();
-    await _ramp(_player.volume, 0);
+    if (!fadeEnabled || !_player.playing) {
+      _rampId++;
+      await _player.pause();
+      return;
+    }
+    final finished = await _ramp(_player.volume, 0);
+    if (!finished) return; // play() took over while fading out
     await _player.pause();
     await _player.setVolume(baseVolume);
   }
+
   @override
   Future<void> seek(Duration position) => _player.seek(position);
   @override

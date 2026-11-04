@@ -53,9 +53,14 @@ class _SongsTabState extends State<SongsTab> {
                         itemCount: songs.length,
                         itemExtent: 68,
                         padding: const EdgeInsets.only(bottom: 160),
-                        labelAt: (i) => songs[i].title.isEmpty
-                            ? '#'
-                            : songs[i].title[0].toUpperCase(),
+                        labelAt: (i) {
+                          final t = songs[i].title;
+                          // runes: title[0] would split emoji/surrogate pairs
+                          return t.isEmpty
+                              ? '#'
+                              : String.fromCharCode(t.runes.first)
+                                  .toUpperCase();
+                        },
                         itemBuilder: (context, i) => SongRow(
                           song: songs[i],
                           playing: player.isCurrent(songs[i]),

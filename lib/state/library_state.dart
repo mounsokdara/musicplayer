@@ -66,7 +66,18 @@ class LibraryState extends ChangeNotifier {
   /// Grid density, 1–4 columns (§6.7).
   int gridColumns = 2;
 
+  /// Minimum track length (Settings → "Minimum track length").
+  int minTrackMs = 3000;
+
+  void setMinTrackSeconds(int seconds) {
+    final ms = seconds * 1000;
+    if (ms == minTrackMs) return;
+    minTrackMs = ms;
+    _refilter();
+  }
+
   bool _loadRunning = false;
+  bool _reloadQueued = false;
   bool _askedAllFiles = false;
   String? loadError;
 
@@ -83,7 +94,10 @@ class LibraryState extends ChangeNotifier {
   /// Loads the library. Always ends with `loading == false`, even when a
   /// query fails or hangs. [quiet] refreshes without showing the spinner.
   Future<void> load({bool quiet = false}) async {
-    if (_loadRunning) return;
+    if (_loadRunning) {
+      _reloadQueued = true; // something changed mid-load: run once more
+      return;
+    }
     _loadRunning = true;
     loadError = null;
     if (!quiet) {
@@ -129,6 +143,10 @@ class LibraryState extends ChangeNotifier {
       _loadRunning = false;
       loading = false;
       notifyListeners();
+      if (_reloadQueued) {
+        _reloadQueued = false;
+        unawaited(load(quiet: true));
+      }
     }
   }
 
@@ -173,6 +191,7 @@ class LibraryState extends ChangeNotifier {
       folder == root || folder.startsWith('$root/');
 
   bool _allowed(Song song) {
+    if (song.duration.inMilliseconds < minTrackMs) return false;
     if (useWhitelist && whitelistedFolders.isNotEmpty) {
       return whitelistedFolders.any((f) => _inside(song.folder, f));
     }
@@ -197,10 +216,14 @@ class LibraryState extends ChangeNotifier {
     await prefs.setBool('useWhitelist', useWhitelist);
   }
 
-  void _applyFilters() {
+  void _refilter() {
     songs = _allSongs.where(_allowed).toList();
     _sortSongs();
     notifyListeners();
+  }
+
+  void _applyFilters() {
+    _refilter();
     _saveFilters();
   }
 
@@ -265,14 +288,18 @@ class LibraryState extends ChangeNotifier {
 
   Future<void> rescan() => load();
 
+  // Album/artist/genre/playlist views honour blacklist/whitelist as well.
+  Future<List<Song>> _filtered(int id, AudiosFromType type) async =>
+      (await _library.songsOf(id, type)).where(_allowed).toList();
+
   Future<List<Song>> songsOfAlbum(int id) =>
-      _library.songsOf(id, AudiosFromType.ALBUM_ID);
+      _filtered(id, AudiosFromType.ALBUM_ID);
   Future<List<Song>> songsOfArtist(int id) =>
-      _library.songsOf(id, AudiosFromType.ARTIST_ID);
+      _filtered(id, AudiosFromType.ARTIST_ID);
   Future<List<Song>> songsOfGenre(int id) =>
-      _library.songsOf(id, AudiosFromType.GENRE_ID);
+      _filtered(id, AudiosFromType.GENRE_ID);
   Future<List<Song>> songsOfPlaylist(int id) =>
-      _library.songsOf(id, AudiosFromType.PLAYLIST);
+      _filtered(id, AudiosFromType.PLAYLIST);
 
   Future<void> createPlaylist(String name) async {
     await _library.createPlaylist(name);

@@ -33,8 +33,10 @@ Future<void> main() async {
     );
 
     audioHandler.fadeEnabled = settings.fadeAudio;
+    library.setMinTrackSeconds(settings.minTrackSeconds);
     settings.addListener(() {
       audioHandler.fadeEnabled = settings.fadeAudio;
+      library.setMinTrackSeconds(settings.minTrackSeconds);
     });
 
     AutoBrowser(
@@ -58,7 +60,7 @@ Future<void> main() async {
       ),
     );
 
-    library.load();
+    library.load().then((_) => player.restoreSession(library.songs));
   } catch (e, st) {
     runApp(_StartupError(error: '$e\n\n$st'));
   }

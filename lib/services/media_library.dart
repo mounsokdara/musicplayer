@@ -14,7 +14,13 @@ class MediaLibrary {
       ignoreCase: true,
     );
     return rows
-        .where((s) => s.isMusic == true && (s.duration ?? 0) > 3000)
+        // Keep everything that isn't a system sound: many real tracks (m4a,
+        // audiobooks, sideloaded files) are not flagged IS_MUSIC.
+        .where((s) =>
+            s.data.isNotEmpty &&
+            s.isAlarm != true &&
+            s.isNotification != true &&
+            s.isRingtone != true)
         .map(Song.fromModel)
         .toList();
   }
