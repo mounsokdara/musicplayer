@@ -59,7 +59,17 @@ jobs:
               // :app is already evaluated (evaluationDependsOn), so guard afterEvaluate.
               if (state.executed) alignJavaTarget() else afterEvaluate { alignJavaTarget() }
           }
+
+          subprojects {
+              tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+                  kotlinOptions {
+                      jvmTarget = "17"
+                  }
+              }
+          }
           KTS
+
+          echo "kotlin.jvm.target.validation.mode=warning" >> android/gradle.properties
 
       - name: Install dependencies
         run: flutter pub get
