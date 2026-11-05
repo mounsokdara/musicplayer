@@ -83,7 +83,7 @@ jobs:
         run: flutter analyze --no-fatal-warnings --no-fatal-infos || true
 
       - name: Build release APK (always v1.0.0)
-        run: flutter build apk --release --build-name=1.0.0 --build-number=1
+        run: flutter build apk --release --build-name=1.0.0 --build-number=1 --dart-define=BUILD_TIME=$(date -u +%s)
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

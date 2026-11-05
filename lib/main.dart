@@ -97,13 +97,15 @@ class MusicApp extends StatelessWidget {
       builder: (lightDynamic, darkDynamic) => MaterialApp(
         title: 'Music',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(
-          settings.useDynamicColor ? lightDynamic : null,
-          settings.accentColor,
+        theme: AppTheme.build(
+          brightness: Brightness.light,
+          settings: settings,
+          dynamicScheme: lightDynamic,
         ),
-        darkTheme: AppTheme.dark(
-          settings.useDynamicColor ? darkDynamic : null,
-          settings.accentColor,
+        darkTheme: AppTheme.build(
+          brightness: Brightness.dark,
+          settings: settings,
+          dynamicScheme: darkDynamic,
         ),
         themeMode: settings.themeMode,
         home: const HomeShell(),

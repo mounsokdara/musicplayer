@@ -34,6 +34,7 @@ class _SongsTabState extends State<SongsTab> {
         children: [
           LibraryHeader(
             sortLabel: library.songSort.label,
+            countLabel: '${songs.length} ${songs.length == 1 ? 'song' : 'songs'}',
             ascending: library.songAscending,
             onSearchChanged: (v) => setState(() => _query = v),
             onSortTap: () => showSortSheet(

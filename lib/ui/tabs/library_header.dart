@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../state/library_state.dart';
 
-/// Search bar with hamburger (drawer) + cast icon, and the sort bar below it
-/// (§6.1). Reused by every library tab.
-class LibraryHeader extends StatelessWidget {
+/// Search bar with hamburger (drawer) + clear button, and the sort bar below
+/// it with an optional item count (§6.1). Reused by every library tab.
+class LibraryHeader extends StatefulWidget {
   const LibraryHeader({
     super.key,
     required this.sortLabel,
@@ -13,6 +13,7 @@ class LibraryHeader extends StatelessWidget {
     required this.onSortTap,
     this.onSearchChanged,
     this.trailing,
+    this.countLabel,
   });
 
   final String sortLabel;
@@ -23,17 +24,41 @@ class LibraryHeader extends StatelessWidget {
   /// Grid-density selector on collection tabs.
   final Widget? trailing;
 
+  /// e.g. "1,204 songs", shown next to the sort button.
+  final String? countLabel;
+
+  @override
+  State<LibraryHeader> createState() => _LibraryHeaderState();
+}
+
+class _LibraryHeaderState extends State<LibraryHeader> {
+  final _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: SearchBar(
+            controller: _controller,
             hintText: 'Search your library',
-            onChanged: onSearchChanged,
+            onChanged: widget.onSearchChanged,
             leading: Builder(
               builder: (c) => IconButton(
                 icon: const Icon(Icons.menu),
@@ -42,13 +67,15 @@ class LibraryHeader extends StatelessWidget {
               ),
             ),
             trailing: [
-              IconButton(
-                icon: const Icon(Icons.cast),
-                tooltip: 'Cast',
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Searching for devices…')),
+              if (_controller.text.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Clear',
+                  onPressed: () {
+                    _controller.clear();
+                    widget.onSearchChanged?.call('');
+                  },
                 ),
-              ),
             ],
           ),
         ),
@@ -57,16 +84,27 @@ class LibraryHeader extends StatelessWidget {
           child: Row(
             children: [
               TextButton.icon(
-                onPressed: onSortTap,
+                onPressed: widget.onSortTap,
                 icon: Icon(
-                  ascending ? Icons.arrow_upward : Icons.arrow_downward,
+                  widget.ascending ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 18,
                 ),
-                label: Text(sortLabel),
-                style: TextButton.styleFrom(foregroundColor: scheme.onSurfaceVariant),
+                label: Text(widget.sortLabel),
+                style: TextButton.styleFrom(
+                  foregroundColor: scheme.onSurfaceVariant,
+                ),
               ),
               const Spacer(),
-              if (trailing != null) trailing!,
+              if (widget.countLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    widget.countLabel!,
+                    style: text.labelMedium
+                        ?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              if (widget.trailing != null) widget.trailing!,
             ],
           ),
         ),

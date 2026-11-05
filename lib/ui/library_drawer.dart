@@ -5,6 +5,8 @@ import '../state/library_state.dart';
 import 'equalizer_screen.dart';
 import 'folders_screen.dart';
 import 'player/queue_screen.dart';
+import 'about/about_info.dart';
+import 'about/about_page.dart';
 import 'settings/settings_screen.dart';
 
 /// Side drawer opened from the search bar's hamburger icon (§4).
@@ -41,48 +43,68 @@ class LibraryDrawer extends StatelessWidget {
           case 5:
             go(const SettingsScreen());
           case 6:
-            Navigator.pop(context);
-            showAboutDialog(
-              context: context,
-              applicationName: 'Music',
-              applicationVersion: '0.1.0',
-              children: const [
-                Text('A local Material 3 music player for Android.'),
-              ],
-            );
+            go(const AboutPage());
         }
       },
-      children: const [
+      children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(28, 24, 16, 16),
-          child: Text('Music', style: TextStyle(fontSize: 24)),
+          padding: const EdgeInsets.fromLTRB(28, 24, 16, 16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.music_note_rounded,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(AboutInfo.name,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  Text('v${AboutInfo.displayVersion}',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ],
+          ),
         ),
-        NavigationDrawerDestination(
+        const NavigationDrawerDestination(
           icon: Icon(Icons.library_music_outlined),
           label: Text('Library'),
         ),
-        NavigationDrawerDestination(
+        const NavigationDrawerDestination(
           icon: Icon(Icons.folder_outlined),
           label: Text('Folders'),
         ),
-        NavigationDrawerDestination(
+        const NavigationDrawerDestination(
           icon: Icon(Icons.queue_music_outlined),
           label: Text('Playing Queue'),
         ),
-        NavigationDrawerDestination(
+        const NavigationDrawerDestination(
           icon: Icon(Icons.equalizer_outlined),
           label: Text('Equalizer'),
         ),
-        Divider(indent: 28, endIndent: 28),
-        NavigationDrawerDestination(
+        const Divider(indent: 28, endIndent: 28),
+        const NavigationDrawerDestination(
           icon: Icon(Icons.refresh),
           label: Text('Scan Media'),
         ),
-        NavigationDrawerDestination(
+        const NavigationDrawerDestination(
           icon: Icon(Icons.settings_outlined),
           label: Text('Settings'),
         ),
-        NavigationDrawerDestination(
+        const NavigationDrawerDestination(
           icon: Icon(Icons.info_outline),
           label: Text('About'),
         ),

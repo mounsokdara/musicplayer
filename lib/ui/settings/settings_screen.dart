@@ -3,35 +3,65 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/settings_service.dart';
+import '../about/about_info.dart';
+import '../about/about_page.dart';
 import '../library_filters_screen.dart';
 import 'scrobble_settings.dart';
+import 'theme_settings.dart';
 
-/// Settings sections per §6.9. Add new sections to [_sections].
+/// Settings hub (same layout as the Video Player app): pinned app bar and
+/// icon-avatar category rows. Add new sections to [_sections].
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+
+    Widget avatar(IconData icon) => CircleAvatar(
+          backgroundColor: scheme.surfaceContainerHighest,
+          foregroundColor: scheme.onSurface,
+          child: Icon(icon),
+        );
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          for (final s in _sections)
-            ListTile(
-              leading: Icon(s.icon),
-              title: Text(s.title),
-              subtitle: Text(s.subtitle),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SettingsSection(
-                    title: s.title,
-                    builder: s.builder,
+      body: CustomScrollView(
+        slivers: [
+          const SliverAppBar(pinned: true, title: Text('Settings')),
+          SliverPadding(
+            padding: EdgeInsets.only(bottom: bottom + 24),
+            sliver: SliverList.list(
+              children: [
+                for (final s in _sections)
+                  ListTile(
+                    leading: avatar(s.icon),
+                    title: Text(s.title),
+                    subtitle: Text(s.subtitle),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            s.page?.call() ??
+                            SettingsSection(title: s.title, builder: s.builder),
+                      ),
+                    ),
+                  ),
+                const Divider(indent: 16, endIndent: 16),
+                ListTile(
+                  leading: avatar(Icons.info_outline),
+                  title: const Text('About'),
+                  subtitle: Text('${AboutInfo.name} v${AboutInfo.displayVersion}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AboutPage()),
                   ),
                 ),
-              ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -42,11 +72,15 @@ typedef SectionBuilder = List<Widget> Function(
     BuildContext context, SettingsService s);
 
 class _Section {
-  const _Section(this.icon, this.title, this.subtitle, this.builder);
+  const _Section(this.icon, this.title, this.subtitle, this.builder,
+      {this.page});
   final IconData icon;
   final String title;
   final String subtitle;
   final SectionBuilder builder;
+
+  /// A dedicated page instead of the generic list of [builder] widgets.
+  final Widget Function()? page;
 }
 
 class SettingsSection extends StatelessWidget {
@@ -60,7 +94,12 @@ class SettingsSection extends StatelessWidget {
     final settings = context.watch<SettingsService>();
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: ListView(children: builder(context, settings)),
+      body: ListView(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewPaddingOf(context).bottom + 24,
+        ),
+        children: builder(context, settings),
+      ),
     );
   }
 }
@@ -68,80 +107,10 @@ class SettingsSection extends StatelessWidget {
 final _sections = <_Section>[
   _Section(
     Icons.palette_outlined,
-    'Themes & Colors',
-    'Theme, accent color, light/dark/auto',
-    (context, s) => [
-      ListTile(
-        title: const Text('Theme'),
-        subtitle: Text(switch (s.themeMode) {
-          ThemeMode.light => 'Light',
-          ThemeMode.dark => 'Dark',
-          ThemeMode.system => 'Follow system',
-        }),
-        onTap: () => showModalBottomSheet(
-          context: context,
-          builder: (sheet) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final mode in ThemeMode.values)
-                  RadioListTile<ThemeMode>(
-                    value: mode,
-                    groupValue: s.themeMode,
-                    title: Text(switch (mode) {
-                      ThemeMode.light => 'Light',
-                      ThemeMode.dark => 'Dark',
-                      ThemeMode.system => 'Follow system',
-                    }),
-                    onChanged: (v) {
-                      if (v != null) s.themeMode = v;
-                      Navigator.pop(sheet);
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      SwitchListTile(
-        title: const Text('Use wallpaper colors'),
-        subtitle: const Text('Material You dynamic color'),
-        value: s.useDynamicColor,
-        onChanged: (v) => s.useDynamicColor = v,
-      ),
-      ListTile(
-        title: const Text('Accent color'),
-        trailing: CircleAvatar(backgroundColor: s.accentColor, radius: 14),
-        onTap: () => showModalBottomSheet(
-          context: context,
-          builder: (sheet) => SafeArea(
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              children: [
-                for (final c in const [
-                  Color(0xFF4A6FA5),
-                  Color(0xFF1DB954),
-                  Color(0xFFE5533D),
-                  Color(0xFFF2A93B),
-                  Color(0xFF00897B),
-                  Color(0xFF8E44AD),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: InkWell(
-                      onTap: () {
-                        s.accentColor = c;
-                        Navigator.pop(sheet);
-                      },
-                      child: CircleAvatar(backgroundColor: c, radius: 22),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ],
+    'Theme',
+    'Light / dark, accent color, pure black',
+    (context, s) => const [],
+    page: ThemeSettingsPage.new,
   ),
   _Section(
     Icons.play_circle_outline,

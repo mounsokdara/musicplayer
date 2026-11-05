@@ -20,8 +20,17 @@ class SettingsService extends ChangeNotifier {
   bool get useDynamicColor => _prefs.getBool('dynamicColor') ?? true;
   set useDynamicColor(bool v) => _set('dynamicColor', v);
 
-  Color get accentColor => Color(_prefs.getInt('accent') ?? 0xFF4A6FA5);
+  Color get accentColor => Color(_prefs.getInt('accent') ?? 0xFF38618D);
   set accentColor(Color v) => _set('accent', v.toARGB32());
+
+  bool get amoledBlack => _prefs.getBool('amoledBlack') ?? false;
+  set amoledBlack(bool v) => _set('amoledBlack', v);
+
+  bool get highContrast => _prefs.getBool('highContrast') ?? false;
+  set highContrast(bool v) => _set('highContrast', v);
+
+  bool get boldText => _prefs.getBool('boldText') ?? false;
+  set boldText(bool v) => _set('boldText', v);
 
   // Now Playing
   bool get showExtraControls => _prefs.getBool('extraControls') ?? true;
