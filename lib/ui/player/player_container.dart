@@ -10,10 +10,19 @@ import 'now_playing.dart';
 /// (§6.3). [_expansion] drives everything: sheet height, corner radius,
 /// mini-player fade, and the bottom navigation bar sliding out of view.
 class PlayerContainer extends StatefulWidget {
-  const PlayerContainer({super.key, required this.hasTrack, this.bottomBar});
+  const PlayerContainer({
+    super.key,
+    required this.hasTrack,
+    this.bottomBar,
+    this.collapsedLeft = 0,
+  });
 
   final bool hasTrack;
   final Widget? bottomBar;
+
+  /// Left inset while collapsed (e.g. the width of a side navigation rail),
+  /// so the mini player never covers it. Animates to 0 when expanded.
+  final double collapsedLeft;
 
   @override
   State<PlayerContainer> createState() => _PlayerContainerState();
@@ -93,7 +102,7 @@ class _PlayerContainerState extends State<PlayerContainer>
               ),
             if (widget.hasTrack)
               Positioned(
-                left: 0,
+                left: widget.collapsedLeft * (1 - t),
                 right: 0,
                 bottom: (widget.bottomBar == null ? 0 : navBarHeight) * (1 - t),
                 height: height,

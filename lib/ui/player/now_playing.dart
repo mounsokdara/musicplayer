@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:provider/provider.dart';
@@ -44,112 +46,169 @@ class NowPlaying extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    onPressed: onCollapse,
-                  ),
-                  const Spacer(),
-                  Text('Now playing',
-                      style: Theme.of(context).textTheme.labelLarge),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () => _showMenu(context, song),
-                  ),
-                ],
+          child: _body(context, player, song, scheme),
+        ),
+      ),
+    );
+  }
+
+  Widget _body(
+    BuildContext context,
+    PlayerState player,
+    Song song,
+    ColorScheme scheme,
+  ) {
+    final size = MediaQuery.sizeOf(context);
+    final landscape = size.width > size.height * 1.15;
+
+    final header = Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.keyboard_arrow_down),
+          onPressed: onCollapse,
+        ),
+        const Spacer(),
+        Text('Now playing', style: Theme.of(context).textTheme.labelLarge),
+        const Spacer(),
+        IconButton(
+          icon: const Icon(Icons.more_vert),
+          onPressed: () => _showMenu(context, song),
+        ),
+      ],
+    );
+
+    // Artwork is always a true square, sized by the smaller side of the space
+    // it gets (a wide, short slot used to squash it into a thin strip).
+    final art = player.lyricsVisible
+        ? const LyricsView()
+        : Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: landscape ? 16 : 28,
+                vertical: landscape ? 4 : 0,
               ),
-              Expanded(
-                child: player.lyricsVisible
-                    ? const LyricsView()
-                    : Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 28),
-                          child: LayoutBuilder(
-                            builder: (_, box) => SongArtwork(
-                              id: song.id,
-                              size: box.maxWidth,
-                              radius: 24,
-                            ),
-                          ),
-                        ),
-                      ),
+              child: LayoutBuilder(
+                builder: (_, box) => SongArtwork(
+                  id: song.id,
+                  size: math.max(
+                    0,
+                    math.min(box.maxWidth, box.maxHeight),
+                  ),
+                  radius: 24,
+                  highRes: true,
+                ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
-                child: Row(
-                  children: [
-                    Expanded(
+            ),
+          );
+
+    final titleRow = Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  song.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                Text(
+                  song.artist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            iconSize: 30,
+            icon: Icon(
+              player.isFavorite(song) ? Icons.favorite : Icons.favorite_border,
+              color: player.isFavorite(song) ? scheme.primary : null,
+            ),
+            onPressed: () => player.toggleFavorite(song),
+          ),
+        ],
+      ),
+    );
+
+    final controls = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          iconSize: 36,
+          icon: const Icon(Icons.skip_previous),
+          onPressed: player.previous,
+        ),
+        const SizedBox(width: 12),
+        IconButton.filled(
+          iconSize: 40,
+          padding: const EdgeInsets.all(14),
+          icon: Icon(
+            player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          ),
+          onPressed: player.toggle,
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          iconSize: 36,
+          icon: const Icon(Icons.skip_next),
+          onPressed: player.next,
+        ),
+      ],
+    );
+
+    if (landscape) {
+      // Two panes: artwork on the left, details + controls on the right.
+      return Column(
+        children: [
+          header,
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(flex: 5, child: art),
+                Expanded(
+                  flex: 6,
+                  child: Center(
+                    child: SingleChildScrollView(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            song.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          Text(
-                            song.artist,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
+                          titleRow,
+                          _SeekBar(player: player),
+                          controls,
+                          const _VolumeSlider(),
                         ],
                       ),
                     ),
-                    IconButton(
-                      iconSize: 30,
-                      icon: Icon(
-                        player.isFavorite(song)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: player.isFavorite(song) ? scheme.primary : null,
-                      ),
-                      onPressed: () => player.toggleFavorite(song),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              _SeekBar(player: player),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    iconSize: 36,
-                    icon: const Icon(Icons.skip_previous),
-                    onPressed: player.previous,
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton.filled(
-                    iconSize: 40,
-                    padding: const EdgeInsets.all(14),
-                    icon: Icon(player.isPlaying
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded),
-                    onPressed: player.toggle,
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    iconSize: 36,
-                    icon: const Icon(Icons.skip_next),
-                    onPressed: player.next,
-                  ),
-                ],
-              ),
-              const _VolumeSlider(),
-              _InfoBadge(song: song),
-              _ActionBar(song: song),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+          _ActionBar(song: song),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        header,
+        Expanded(child: art),
+        titleRow,
+        _SeekBar(player: player),
+        controls,
+        const _VolumeSlider(),
+        _InfoBadge(song: song),
+        _ActionBar(song: song),
+      ],
     );
   }
 }

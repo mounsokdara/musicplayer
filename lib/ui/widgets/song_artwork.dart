@@ -9,12 +9,16 @@ class SongArtwork extends StatelessWidget {
     this.size = 52,
     this.type = ArtworkType.AUDIO,
     this.radius = 10,
+    this.highRes = false,
   });
 
   final int id;
   final double size;
   final ArtworkType type;
   final double radius;
+
+  /// Large views (Now Playing) request a bigger, sharper bitmap.
+  final bool highRes;
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +31,9 @@ class SongArtwork extends StatelessWidget {
           id: id,
           type: type,
           artworkFit: BoxFit.cover,
+          size: highRes ? 1000 : 200,
+          quality: highRes ? 100 : 50,
+          artworkQuality: highRes ? FilterQuality.high : FilterQuality.low,
           artworkWidth: size,
           artworkHeight: size,
           artworkBorder: BorderRadius.circular(radius),
