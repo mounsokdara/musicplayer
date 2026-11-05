@@ -78,8 +78,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final library = context.watch<LibraryState>();
     final player = context.watch<PlayerState>();
     final wide = MediaQuery.sizeOf(context).width >= 640;
-    // Landscape phones are short: drop labels so every destination fits.
-    final short = MediaQuery.sizeOf(context).height < 480;
 
     if (library.permissionDenied) return const _PermissionScreen();
 
@@ -95,11 +93,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                       child: NavigationRail(
                         selectedIndex: _tab,
                         onDestinationSelected: (i) => setState(() => _tab = i),
-                        labelType: short
-                            ? NavigationRailLabelType.none
-                            : NavigationRailLabelType.all,
+                        // Labels always stay visible; the rail scrolls when the
+                        // screen is too short to show every destination.
+                        labelType: NavigationRailLabelType.all,
                         leading: Padding(
-                          padding: EdgeInsets.symmetric(vertical: short ? 4 : 12),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Builder(
                             builder: (c) => IconButton(
                               icon: const Icon(Icons.menu),
@@ -110,10 +108,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                         destinations: [
                           for (final d in _destinations)
                             NavigationRailDestination(
-                              icon: Tooltip(
-                                message: d.label,
-                                child: Icon(d.icon),
-                              ),
+                              icon: Icon(d.icon),
                               selectedIcon: Icon(d.selected),
                               label: Text(d.label),
                             ),
